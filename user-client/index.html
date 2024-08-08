@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Table Test</title>
+</head>
+
+<body>
+    <div id="price-table-container"></div>
+    <script>
+        fetch('http://localhost:3000/trpc/priceTable.renderTable?input=' + JSON.stringify({ tableId: "14f3c242-d212-43f4-bf5e-56276754eaf9" }))
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`)
+                }
+                return response.json()
+            })
+            .then(result => {
+                console.log('Full response:', result)
+                if (result && result.result && result.result.data) {
+                    document.getElementById('price-table-container').innerHTML = result.result.data
+                } else {
+                    throw new Error('Unexpected response structure')
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error)
+                document.getElementById('price-table-container').innerHTML = 'Error loading price table: ' + error.message
+            });
+    </script>
+</body>
+
+</html>

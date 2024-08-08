@@ -103,13 +103,13 @@ export class Price {
   @Column({ nullable: true })
   customInterval?: string // For custom billing cycles
 
-  @Column("json")
+  @Column("json", { nullable: true, default: () => "'{\"enabled\": false, \"days\": 0}'" })
   trialPeriod: {
     enabled: boolean
     days: number
   }
 
-  @Column("json")
+  @Column("json", { default: () => "'{}'" })
   countryOverrides: {
     [countryCode: string]: {
       unitAmount: number

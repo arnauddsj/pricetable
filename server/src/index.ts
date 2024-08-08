@@ -24,8 +24,26 @@ server.addContentTypeParser('application/json', { parseAs: 'string' }, function 
   }
 })
 
+const handlePublicCORS = (req: any, reply: any, done: any) => {
+  const requestPath = req.raw.url
+  if (requestPath.startsWith('/trpc/priceTable.renderTable')) {
+    reply.header('Access-Control-Allow-Origin', '*')
+    reply.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    reply.header('Access-Control-Allow-Headers', 'Content-Type')
+  }
+  done()
+}
+
+server.addHook('onRequest', handlePublicCORS)
+
 server.register(cors, {
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, cb) => {
+    if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      cb(null, true)
+      return
+    }
+    cb(new Error("Not allowed"), false)
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],

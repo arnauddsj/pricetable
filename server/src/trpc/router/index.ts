@@ -1,9 +1,13 @@
 import { router, publicProcedure } from "../index"
 import { authRouter } from "./auth"
 import { AppDataSource } from "../../data-source"
+import { priceTableRouter } from "./priceTable"
+import { productRouter } from "./product"
 
 export const appRouter = router({
   auth: authRouter,
+  priceTable: priceTableRouter,
+  product: productRouter,
   healthCheck: publicProcedure.query(async () => {
     try {
       await AppDataSource.query('SELECT 1')

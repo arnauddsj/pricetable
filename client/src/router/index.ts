@@ -20,6 +20,18 @@ const router = createRouter({
       path: '/auth',
       name: 'auth',
       component: () => import('@/router/auth/Auth.vue'),
+    },
+    {
+      path: '/price-tables',
+      name: 'priceTableManagement',
+      component: () => import('@/router/PriceTableManagement.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/price-tables/:id/edit',
+      name: 'editPriceTable',
+      component: () => import('@/router/EditPriceTable.vue'),
+      meta: { requiresAuth: true }
     }
   ],
 })
