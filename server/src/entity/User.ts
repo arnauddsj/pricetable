@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm"
 import { Token } from "./Token"
-import { ProductTable } from "./Product"
+import { PriceTable } from "./PriceTable"
 
 @Entity()
 export class User {
@@ -22,6 +22,6 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date
 
-  @OneToMany(() => ProductTable, productTable => productTable.user)
-  productTables: ProductTable[]
+  @OneToMany(() => PriceTable, priceTable => priceTable.user)
+  priceTables: PriceTable[]
 }

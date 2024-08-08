@@ -2,14 +2,14 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMan
 import { User } from "./User"
 
 @Entity()
-export class ProductTable {
+export class PriceTable {
   @PrimaryGeneratedColumn("uuid")
   id: string
 
   @Column()
   name: string
 
-  @ManyToOne(() => User, user => user.productTables)
+  @ManyToOne(() => User, user => user.priceTables)
   user: User
 
   @Column("json")
@@ -24,10 +24,10 @@ export class ProductTable {
     usageRanges?: { min: number; max: number; price: number }[]
   }
 
-  @OneToMany(() => Product, product => product.productTable)
+  @OneToMany(() => Product, product => product.priceTable)
   products: Product[]
 
-  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.productTable)
+  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
   featureGroups: FeatureGroup[]
 
   @Column()
@@ -69,8 +69,8 @@ export class Product {
     link: string
   }
 
-  @ManyToOne(() => ProductTable, productTable => productTable.products)
-  productTable: ProductTable
+  @ManyToOne(() => PriceTable, priceTable => priceTable.products)
+  priceTable: PriceTable
 
   @ManyToMany(() => Feature)
   @JoinTable()
@@ -172,8 +172,8 @@ export class FeatureGroup {
   @Column()
   imageUrl: string
 
-  @ManyToOne(() => ProductTable, productTable => productTable.featureGroups)
-  productTable: ProductTable
+  @ManyToOne(() => PriceTable, priceTable => priceTable.featureGroups)
+  priceTable: PriceTable
 
   @OneToMany(() => Feature, feature => feature.group)
   features: Feature[]
