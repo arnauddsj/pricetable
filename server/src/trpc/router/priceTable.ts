@@ -142,7 +142,6 @@ function generatePriceTableHTML(priceTable: PriceTable): string {
 
   return `
     <div class="price-table">
-      <h2>${priceTable.name}</h2>
       <div class="product-columns">
         ${productColumns}
       </div>

@@ -2,7 +2,6 @@
 import { RouterView } from "vue-router";
 import { onMounted } from "vue";
 import { useUserStore } from "@/stores/user";
-import DefaultLayout from "@/layouts/DefaultLayout.vue";
 
 const userStore = useUserStore();
 
