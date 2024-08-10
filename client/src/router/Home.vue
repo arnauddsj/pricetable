@@ -10,5 +10,3 @@ import { RouterLink } from "vue-router";
     <RouterLink to="/price-tables">Manage Price Tables</RouterLink>
   </DefaultLayout>
 </template>
-
-<style lang="scss"></style>

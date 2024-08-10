@@ -8,11 +8,3 @@ import TopBar from "@/components/TopBar.vue";
     <slot></slot>
   </div>
 </template>
-
-<style scoped lang="scss">
-.default-layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-</style>

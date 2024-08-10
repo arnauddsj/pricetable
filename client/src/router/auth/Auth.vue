@@ -5,6 +5,7 @@ import { trpc } from "@/services/server";
 import { useUserStore } from "@/stores/user";
 import ErrorMessage from "@/components/ErrorMessage.vue";
 import AuthLayout from "@/layouts/AuthLayout.vue";
+import { Button } from "@/components/ui/button";
 
 const email = ref("");
 const errorMessage = ref("");
@@ -45,7 +46,7 @@ onMounted(async () => {
       <h1>Login</h1>
       <form @submit.prevent="sendMagicLink">
         <input v-model="email" type="email" placeholder="Enter your email" required />
-        <button type="submit">Login with my email</button>
+        <Button type="submit">Login with my email</Button>
       </form>
       <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
       <ErrorMessage v-if="errorMessage" :message="errorMessage" />

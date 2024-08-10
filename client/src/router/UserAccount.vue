@@ -27,5 +27,3 @@ const handleLogout = async () => {
     </div>
   </DefaultLayout>
 </template>
-
-<style scoped lang="scss"></style>

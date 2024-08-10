@@ -24,23 +24,21 @@ export class PriceTable {
     usageRanges?: { min: number; max: number; price: number }[]
   }
 
+
   @OneToMany(() => Product, product => product.priceTable)
   products: Product[]
 
   @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
   featureGroups: FeatureGroup[]
 
-  @Column()
+  @Column({ nullable: true })
   stripePublicKey: string
 
-  @Column()
+  @Column({ nullable: true })
   paddlePublicKey: string
 
-  @Column("json")
-  localizationSettings: {
-    enableAutomaticCurrencyConversion: boolean
-    countrySpecificPricing: { [countryCode: string]: string } // e.g., { "GB": "GBP", "BR": "USD" }
-  }
+  @Column({ default: false })
+  useLocalization: boolean
 }
 
 @Entity()
@@ -60,14 +58,20 @@ export class Product {
   @Column()
   isHighlighted: boolean
 
-  @Column()
+  @Column({ nullable: true })
   highlightText: string
 
-  @Column("json")
-  buttonSettings: {
-    text: string
-    link: string
-  }
+  @Column()
+  buttonText: string
+
+  @Column()
+  buttonLink: string
+
+  @Column({ nullable: true })
+  stripeProductId: string
+
+  @Column({ nullable: true })
+  paddleProductId: string
 
   @ManyToOne(() => PriceTable, priceTable => priceTable.products)
   priceTable: PriceTable
@@ -75,12 +79,6 @@ export class Product {
   @ManyToMany(() => Feature)
   @JoinTable()
   features: Feature[]
-
-  @Column()
-  stripeProductId: string
-
-  @Column()
-  paddleProductId: string
 }
 
 @Entity()
@@ -98,24 +96,35 @@ export class Price {
   currency: string
 
   @Column()
-  billingCycle: 'one-time' | 'monthly' | 'yearly' | 'custom'
+  billingCycle: string
 
   @Column({ nullable: true })
-  customInterval?: string // For custom billing cycles
+  checkoutUrl: string //override the buttonLink
 
-  @Column("json", { nullable: true, default: () => "'{\"enabled\": false, \"days\": 0}'" })
-  trialPeriod: {
-    enabled: boolean
-    days: number
-  }
+  @Column({ default: false })
+  overrideLocalization: boolean
+  // will check first if any stripe/paddle localization is set, if not will use the countryPrices
 
-  @Column("json", { default: () => "'{}'" })
-  countryOverrides: {
-    [countryCode: string]: {
-      unitAmount: number
-      currency: string
-    }
-  }
+  @OneToMany(() => CountryPrice, countryPrice => countryPrice.price)
+  countryPrices: CountryPrice[]
+}
+
+@Entity()
+export class CountryPrice {
+  @PrimaryGeneratedColumn("uuid")
+  id: string
+
+  @ManyToOne(() => Price, price => price.countryPrices)
+  price: Price
+
+  @Column()
+  countryCode: string
+
+  @Column("decimal", { precision: 10, scale: 2 })
+  unitAmount: number
+
+  @Column()
+  currency: string
 }
 
 @Entity()
@@ -124,10 +133,10 @@ export class Discount {
   id: string
 
   @Column()
-  code: string
-
-  @Column()
   description: string
+
+  @Column({ nullable: true })
+  code: string // if strip/paddle not set to retrieve discounts
 
   @Column()
   type: 'percentage' | 'fixed_amount'
@@ -136,22 +145,15 @@ export class Discount {
   amount: number
 
   @Column()
-  currency: string
+  baseCurrency: string //This represents the primary currency in which the discount is defined.
 
-  @Column()
-  isRecurring: boolean
-
-  @Column({ nullable: true })
-  recurringPeriods?: number
+  @Column("json")
+  localizedAmounts: {
+    [currencyCode: string]: number
+  }
 
   @Column({ nullable: true })
   expiresAt?: Date
-
-  @Column()
-  usageLimit: number
-
-  @Column()
-  timesUsed: number
 
   @ManyToMany(() => Product)
   @JoinTable()
@@ -169,7 +171,7 @@ export class FeatureGroup {
   @Column("text")
   description: string
 
-  @Column()
+  @Column({ nullable: true })
   imageUrl: string
 
   @ManyToOne(() => PriceTable, priceTable => priceTable.featureGroups)
@@ -190,7 +192,7 @@ export class Feature {
   @Column("text")
   description: string
 
-  @Column()
+  @Column({ nullable: true })
   imageUrl: string
 
   @ManyToOne(() => FeatureGroup, group => group.features)

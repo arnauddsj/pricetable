@@ -136,7 +136,7 @@ function generatePriceTableHTML(priceTable: PriceTable): string {
       <h3>${product.name}</h3>
       <p>${product.description}</p>
       ${product.prices && product.prices.length > 0 ? generatePriceHTML(product.prices[0]) : '<p>No price available</p>'}
-      <button>${product.buttonSettings.text}</button>
+      <button>${product.buttonText}</button>
     </div>
   `).join('')
 

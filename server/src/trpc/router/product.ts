@@ -12,10 +12,10 @@ export const productRouter = router({
       description: z.string(),
       isHighlighted: z.boolean(),
       highlightText: z.string().optional(),
-      buttonSettings: z.object({
-        text: z.string(),
-        link: z.string(),
-      }),
+      buttonText: z.string(),
+      buttonLink: z.string(),
+      stripeProductId: z.string().optional(),
+      paddleProductId: z.string().optional(),
       prices: z.array(z.object({
         unitAmount: z.number(),
         currency: z.string(),
@@ -24,9 +24,15 @@ export const productRouter = router({
           enabled: z.boolean(),
           days: z.number(),
         }).optional().default({ enabled: false, days: 0 }),
+        checkoutUrl: z.string().optional(),
+        overrideLocalization: z.boolean().optional(),
+        countryPrices: z.array(z.object({
+          price: z.number(),
+          countryCode: z.string(),
+          unitAmount: z.number(),
+          currency: z.string(),
+        })).optional(),
       })),
-      stripeProductId: z.string().optional().default('default_stripe_id'),
-      paddleProductId: z.string().optional().default('default_paddle_id'),
     }))
     .mutation(async ({ input }) => {
       const productRepository = AppDataSource.getRepository(Product)
@@ -39,20 +45,42 @@ export const productRouter = router({
       }
 
       const product = productRepository.create({
-        ...input,
+        name: input.name,
+        description: input.description,
+        isHighlighted: input.isHighlighted,
+        highlightText: input.highlightText,
+        buttonText: input.buttonText,
+        buttonLink: input.buttonLink,
+        stripeProductId: input.stripeProductId,
+        paddleProductId: input.paddleProductId,
         priceTable,
       })
 
       await productRepository.save(product)
 
       // Create prices for the product
-      const prices = input.prices.map(price => priceRepository.create({
-        ...price,
-        product,
-        trialPeriod: price.trialPeriod || { enabled: false, days: 0 },
-        countryOverrides: {}, // Add this line to provide a default empty object
+      const prices = await Promise.all(input.prices.map(async (priceInput) => {
+        const price = priceRepository.create({
+          unitAmount: priceInput.unitAmount,
+          currency: priceInput.currency,
+          billingCycle: priceInput.billingCycle,
+          checkoutUrl: priceInput.checkoutUrl ?? null,
+          overrideLocalization: priceInput.overrideLocalization ?? false,
+        })
+
+        if (priceInput.countryPrices && priceInput.countryPrices.length > 0) {
+          price.countryPrices = priceInput.countryPrices.map(cp => ({
+            id: undefined, // This will allow the database to auto-generate the id
+            price: undefined, // Remove the circular reference
+            countryCode: cp.countryCode,
+            unitAmount: cp.unitAmount,
+            currency: cp.currency
+          }))
+        }
+
+        price.product = product
+        return await priceRepository.save(price)
       }))
-      await priceRepository.save(prices)
 
       return { ...product, prices }
     }),
@@ -64,20 +92,25 @@ export const productRouter = router({
       description: z.string(),
       isHighlighted: z.boolean(),
       highlightText: z.string().optional(),
-      buttonSettings: z.object({
-        text: z.string(),
-        link: z.string(),
-      }),
+      buttonText: z.string(),
+      buttonLink: z.string(),
+      stripeProductId: z.string().optional(),
+      paddleProductId: z.string().optional(),
       prices: z.array(z.object({
         id: z.string().uuid().optional(),
         unitAmount: z.number(),
         currency: z.string(),
-        billingCycle: z.enum(['one-time', 'monthly', 'yearly']),
-        trialPeriod: z.object({
-          enabled: z.boolean(),
-          days: z.number(),
-        }).optional(),
-      })),
+        billingCycle: z.enum(['cycles', 'one-time', 'usage-based']),
+        checkoutUrl: z.string().optional(),
+        overrideLocalization: z.boolean().optional(),
+        countryPrices: z.array(z.object({
+          id: z.string().uuid().optional(),
+          price: z.number(),
+          countryCode: z.string(),
+          unitAmount: z.number(),
+          currency: z.string(),
+        })),
+      }))
     }))
     .mutation(async ({ input }) => {
       const productRepository = AppDataSource.getRepository(Product)
@@ -103,7 +136,15 @@ export const productRouter = router({
           }
         }
         // Create new price
-        const newPrice = priceRepository.create({ ...priceInput, product })
+        const newPrice = priceRepository.create({
+          ...priceInput,
+          product,
+          countryPrices: priceInput.countryPrices?.map(cp => ({
+            ...cp,
+            id: cp.id || undefined,
+            price: undefined // Remove the circular reference
+          }))
+        })
         return priceRepository.save(newPrice)
       }))
 

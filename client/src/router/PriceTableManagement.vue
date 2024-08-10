@@ -75,22 +75,3 @@ onMounted(fetchPriceTables);
     </ul>
   </DefaultLayout>
 </template>
-
-<style scoped>
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 300px;
-  margin-bottom: 2rem;
-}
-
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-li {
-  margin-bottom: 1rem;
-}
-</style>
