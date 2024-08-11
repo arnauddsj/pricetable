@@ -1,0 +1,25 @@
+<div class="price-table">
+  <div class="product-columns">
+    <% products.forEach(function(product) { %>
+      <div class="product-column">
+        <h3>
+          <%= product.name %>
+        </h3>
+        <p>
+          <%= product.description %>
+        </p>
+        <div class="price">
+          <span class="amount">
+            <%= product.formattedPrice %>
+          </span>
+          <% if (product.prices && product.prices.length> 0) { %>
+            <span class="billing-cycle">/<%= product.prices[0].billingCycle %></span>
+            <% } %>
+        </div>
+        <button>
+          <%= product.buttonText %>
+        </button>
+      </div>
+      <% }); %>
+  </div>
+</div>

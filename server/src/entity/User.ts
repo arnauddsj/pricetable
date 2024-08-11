@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm"
 import { Token } from "./Token"
-import { PriceTable } from "./PriceTable"
+import { PriceTable, PriceTableTemplate } from "./PriceTable"
 
 @Entity()
 export class User {
@@ -24,4 +24,7 @@ export class User {
 
   @OneToMany(() => PriceTable, priceTable => priceTable.user)
   priceTables: PriceTable[]
+
+  @OneToMany(() => PriceTableTemplate, template => template.user)
+  templates: PriceTableTemplate[]
 }

@@ -2,7 +2,6 @@ import { reactive, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { trpc } from '@/services/server'
 import Cookies from 'js-cookie'
-import { TRPCClientError } from '@trpc/client'
 
 interface UserState {
   email: string | null

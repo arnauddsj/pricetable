@@ -3,6 +3,7 @@ import { authRouter } from "./auth"
 import { AppDataSource } from "../../data-source"
 import { priceTableRouter } from "./priceTable"
 import { productRouter } from "./product"
+import { templateRouter } from "./template"
 
 export const appRouter = router({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
       return { status: 'error', message: 'Server is running but database connection failed' }
     }
   }),
+  template: templateRouter,
 })
 
 export type AppRouter = typeof appRouter

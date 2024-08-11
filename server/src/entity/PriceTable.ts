@@ -24,6 +24,11 @@ export class PriceTable {
     usageRanges?: { min: number; max: number; price: number }[]
   }
 
+  @ManyToOne(() => PriceTableTemplate)
+  template: PriceTableTemplate
+
+  @Column({ nullable: true })
+  templateId: string
 
   @OneToMany(() => Product, product => product.priceTable)
   products: Product[]
@@ -197,4 +202,40 @@ export class Feature {
 
   @ManyToOne(() => FeatureGroup, group => group.features)
   group: FeatureGroup
+}
+
+@Entity()
+export class PriceTableTemplate {
+  @PrimaryGeneratedColumn("uuid")
+  id: string
+
+  @Column({ nullable: true })
+  name: string
+
+  @Column("jsonb")
+  styling: Record<string, any>
+
+  @Column()
+  isPublic: boolean
+
+  @ManyToOne(() => User, { nullable: true })
+  user: User | null
+
+  @ManyToOne(() => PriceTableTemplate, { nullable: true })
+  originalTemplate: PriceTableTemplate | null
+
+  @Column({ nullable: true })
+  originalTemplateId: string | null
+
+  @OneToMany(() => PriceTable, priceTable => priceTable.template)
+  priceTables: PriceTable[]
+
+  @Column()
+  version: string
+
+  @Column("text")
+  htmlTemplate: string //stores the version of the HTML template.
+
+  @Column("text")
+  vueComponent: string //stores the version of the PriceTablePreview component.
 }
