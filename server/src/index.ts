@@ -75,7 +75,7 @@ server.register(fastifyTRPCPlugin, {
 // Create the default template if it doesn't exist, make sure to point to the right version
 async function createDefaultTemplate() {
   const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
-  const defaultTemplate = loadTemplate('0.1')
+  const defaultTemplate = loadTemplate('0.2')
   const existingTemplate = await templateRepo.findOne({ where: { version: defaultTemplate.databaseFields.version } })
   if (!existingTemplate) {
     const newTemplate = templateRepo.create(defaultTemplate.databaseFields)

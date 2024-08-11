@@ -36,8 +36,9 @@ export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
+      // Get the latest template
 
-      const defaultTemplate = await AppDataSource.getRepository(PriceTableTemplate).findOne({ where: { version: '0.1' } })
+      const defaultTemplate = await AppDataSource.getRepository(PriceTableTemplate).findOne({ where: { version: '0.2' } })
       if (!defaultTemplate) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Default template not found' })
       }

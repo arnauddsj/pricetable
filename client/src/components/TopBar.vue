@@ -18,12 +18,12 @@ const navigateToAccount = () => {
 </script>
 
 <template>
-  <header>
+  <header class="w-full flex items-center justify-between px-4">
     <a class="logo" href="/">
       <img src="@/assets/vue.svg" alt="Logo" />
       <span>QuickStart</span>
     </a>
-    <nav>
+    <nav class="flex items-center gap-4">
       <Button @click="navigateToAccount" variant="outline">
         {{ isLoggedIn ? "Account" : "Login" }}
       </Button>

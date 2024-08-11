@@ -9,10 +9,12 @@ export const templateRouter = router({
   getLatestVersion: publicProcedure
     .query(async () => {
       const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
-      const latestTemplate = await templateRepo.findOne({
-        order: { version: 'DESC' }
-      })
-      return latestTemplate ? latestTemplate.version : '0.1'
+      const result = await templateRepo.createQueryBuilder('template')
+        .select('template.version')
+        .orderBy('template.version', 'DESC')
+        .limit(1)
+        .getOne()
+      return result ? result.version : null
     }),
 
   upgradeTemplate: protectedProcedure

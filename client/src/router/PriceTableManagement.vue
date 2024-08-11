@@ -2,7 +2,8 @@
 import { ref, onMounted } from "vue";
 import { trpc } from "@/services/server";
 import DefaultLayout from "@/layouts/DefaultLayout.vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
+const router = useRouter();
 
 const priceTables = ref<any[]>([]);
 const newPriceTable = ref({
@@ -33,14 +34,14 @@ const fetchPriceTables = async () => {
 
 const createPriceTable = async () => {
   try {
-    const result = await trpc.priceTable.create.mutate(newPriceTable.value)
-    await fetchPriceTables()
-    newPriceTable.value.name = ""
-    router.push({ name: 'editPriceTable', params: { id: result.id } })
+    const result = await trpc.priceTable.create.mutate(newPriceTable.value);
+    await fetchPriceTables();
+    newPriceTable.value.name = "";
+    router.push({ name: "editPriceTable", params: { id: result.id } });
   } catch (error) {
-    console.error("Error creating price table:", error)
+    console.error("Error creating price table:", error);
   }
-}
+};
 
 const deletePriceTable = async (id: string) => {
   try {
