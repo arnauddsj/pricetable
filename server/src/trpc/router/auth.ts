@@ -93,11 +93,11 @@ export const authRouter = router({
       }
     }),
 
-  getUser: protectedProcedure
+  getUser: publicProcedure
     .query(async ({ ctx }) => {
       const token = ctx.req.cookies[CONFIG.COOKIE_NAME]
       if (!token) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No token found' })
+        return null
       }
 
       const user = await verifyAndGetUser(token)
@@ -105,6 +105,6 @@ export const authRouter = router({
         return { email: user.email }
       }
 
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid token' })
+      return null
     }),
 })

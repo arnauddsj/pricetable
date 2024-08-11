@@ -33,10 +33,6 @@ export const useUserStore = defineStore('user', () => {
         return null
       }
     } catch (error) {
-      if (error instanceof TRPCClientError && error.message === 'Not authenticated') {
-        clearUser()
-        return null
-      }
       console.error('Failed to fetch user:', error)
       clearUser()
       return null
