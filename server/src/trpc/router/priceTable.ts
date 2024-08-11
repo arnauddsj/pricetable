@@ -1,7 +1,7 @@
 import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { PriceTable, Price } from '../../entity/PriceTable'
+import { PriceTable, Price, PriceTableTemplate } from '../../entity/PriceTable'
 import { AppDataSource } from '../../data-source'
 // import NodeCache from 'node-cache'
 
@@ -36,12 +36,18 @@ export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
-      const priceTableRepository = AppDataSource.getRepository(PriceTable)
-      const newPriceTable = priceTableRepository.create({
+
+      const defaultTemplate = await AppDataSource.getRepository(PriceTableTemplate).findOne({ where: { version: '0.1' } })
+      if (!defaultTemplate) {
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Default template not found' })
+      }
+
+      const newPriceTable = AppDataSource.getRepository(PriceTable).create({
         ...input,
-        user: ctx.user
+        user: ctx.user,
+        template: defaultTemplate
       })
-      await priceTableRepository.save(newPriceTable)
+      await AppDataSource.getRepository(PriceTable).save(newPriceTable)
       return newPriceTable
     }),
 

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { PriceTable, PriceTableTemplate } from '../../entity/PriceTable'
 import { AppDataSource } from '../../data-source'
-import { loadHTMLTemplate, renderTemplate, generateCSSFromStyling, formatCurrency } from '../../services/template'
+import { loadTemplate, renderTemplate, generateCSS, formatCurrency } from '../../services/template'
 
 export const templateRouter = router({
   getLatestVersion: publicProcedure
@@ -63,7 +63,7 @@ export const templateRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
       }
 
-      const htmlTemplate = loadHTMLTemplate(priceTable.template.version)
+      const template = loadTemplate(priceTable.template.version)
 
       const templateData = {
         priceTable: priceTable,
@@ -75,9 +75,17 @@ export const templateRouter = router({
         }))
       }
 
-      const renderedHtml = renderTemplate(htmlTemplate, templateData)
-      const css = generateCSSFromStyling(priceTable.template.styling)
+      const renderedHtml = renderTemplate(template.htmlTemplate, templateData)
+      const customCSS = generateCSS({
+        ...template.databaseFields.customCSS,
+        ...priceTable.template.customCSS
+      })
 
-      return `<style>${css}</style>${renderedHtml}`
-    })
+      return `
+        <style>
+          ${customCSS}
+        </style>
+        ${renderedHtml}
+      `
+    }),
 })

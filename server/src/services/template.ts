@@ -1,11 +1,10 @@
-import fs from 'fs'
+import Handlebars from 'handlebars'
 import path from 'path'
-import * as ejs from 'ejs'
 
-export function loadHTMLTemplate(version: string): string {
-  const templatePath = path.join(__dirname, '..', 'templates', `${version}.ejs`)
+export function loadTemplate(version: string): any {
+  const templatePath = path.join(__dirname, '..', 'templates', `${version}.ts`)
   try {
-    return fs.readFileSync(templatePath, 'utf-8')
+    return require(templatePath).template
   } catch (error) {
     console.error(`Failed to load template version ${version}:`, error)
     throw new Error(`Template version ${version} not found`)
@@ -13,12 +12,13 @@ export function loadHTMLTemplate(version: string): string {
 }
 
 export function renderTemplate(template: string, data: any): string {
-  return ejs.render(template, data)
+  const compiledTemplate = Handlebars.compile(template)
+  return compiledTemplate(data)
 }
 
-export function generateCSSFromStyling(styling: Record<string, any>): string {
+export function generateCSS(customCSS: Record<string, any>): string {
   let css = ''
-  for (const [selector, styles] of Object.entries(styling)) {
+  for (const [selector, styles] of Object.entries(customCSS)) {
     css += `${selector} {\n`
     for (const [property, value] of Object.entries(styles as Record<string, string>)) {
       css += `  ${property}: ${value};\n`

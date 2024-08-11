@@ -6,6 +6,8 @@ import type { AppRouter } from './trpc/router'
 import fastifyCookie from '@fastify/cookie'
 import { AppDataSource } from './data-source'
 import dotenv from 'dotenv'
+import { loadTemplate } from './services/template'
+import { PriceTableTemplate } from './entity/PriceTable'
 
 // Load environment variables
 dotenv.config()
@@ -70,13 +72,28 @@ server.register(fastifyTRPCPlugin, {
   },
 })
 
+// Create the default template if it doesn't exist, make sure to point to the right version
+async function createDefaultTemplate() {
+  const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
+  const defaultTemplate = loadTemplate('0.1')
+  const existingTemplate = await templateRepo.findOne({ where: { version: defaultTemplate.databaseFields.version } })
+  if (!existingTemplate) {
+    const newTemplate = templateRepo.create(defaultTemplate.databaseFields)
+    await templateRepo.save(newTemplate)
+    console.log('Default template created')
+  }
+}
+
 async function connectWithRetry(retries = 5, delay = 5000) {
   while (retries > 0) {
     try {
+
       await AppDataSource.initialize()
       console.log("Data Source has been initialized!")
       await AppDataSource.runMigrations()
       console.log("Migrations have been run successfully!")
+      await createDefaultTemplate()
+      console.log("Default template created")
       return
     } catch (err) {
       console.error('Failed to connect to the database or run migrations. Retrying...')
@@ -86,6 +103,8 @@ async function connectWithRetry(retries = 5, delay = 5000) {
   }
   throw new Error('Unable to connect to the database or run migrations after multiple attempts')
 }
+
+
 
 async function main() {
   try {

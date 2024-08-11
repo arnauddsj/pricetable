@@ -212,9 +212,6 @@ export class PriceTableTemplate {
   @Column({ nullable: true })
   name: string
 
-  @Column("jsonb")
-  styling: Record<string, any>
-
   @Column()
   isPublic: boolean
 
@@ -230,12 +227,9 @@ export class PriceTableTemplate {
   @OneToMany(() => PriceTable, priceTable => priceTable.template)
   priceTables: PriceTable[]
 
-  @Column()
+  @Column({ unique: true })
   version: string
 
-  @Column("text")
-  htmlTemplate: string //stores the version of the HTML template.
-
-  @Column("text")
-  vueComponent: string //stores the version of the PriceTablePreview component.
+  @Column("jsonb")
+  customCSS: Record<string, any>
 }

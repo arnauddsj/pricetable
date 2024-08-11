@@ -33,13 +33,14 @@ const fetchPriceTables = async () => {
 
 const createPriceTable = async () => {
   try {
-    await trpc.priceTable.create.mutate(newPriceTable.value);
-    await fetchPriceTables();
-    newPriceTable.value.name = "";
+    const result = await trpc.priceTable.create.mutate(newPriceTable.value)
+    await fetchPriceTables()
+    newPriceTable.value.name = ""
+    router.push({ name: 'editPriceTable', params: { id: result.id } })
   } catch (error) {
-    console.error("Error creating price table:", error);
+    console.error("Error creating price table:", error)
   }
-};
+}
 
 const deletePriceTable = async (id: string) => {
   try {
