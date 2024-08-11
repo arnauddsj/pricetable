@@ -3,27 +3,55 @@ import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { trpc } from "@/services/server";
 import { useUserStore } from "@/stores/user";
-import ErrorMessage from "@/components/ErrorMessage.vue";
-import AuthLayout from "@/layouts/AuthLayout.vue";
-import { Button } from "@/components/ui/button";
+import { useForm } from "vee-validate";
+import { toTypedSchema } from "@vee-validate/zod";
+import * as z from "zod";
 
-const email = ref("");
-const errorMessage = ref("");
-const successMessage = ref("");
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import AuthLayout from "@/layouts/AuthLayout.vue";
+import { vAutoAnimate } from "@formkit/auto-animate/vue";
+
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const success = ref(false);
 
-const sendMagicLink = async () => {
+const formSchema = toTypedSchema(
+  z.object({
+    email: z.string().email("Invalid email address"),
+  })
+);
+
+const { handleSubmit } = useForm({
+  validationSchema: formSchema,
+});
+
+const onSubmit = handleSubmit(async (values) => {
+  console.log(values);
   try {
-    await trpc.auth.sendMagicLink.mutate({ email: email.value });
-    successMessage.value = "Magic link sent! Check your email.";
-    errorMessage.value = "";
+    await trpc.auth.sendMagicLink.mutate({ email: values.email });
+    toast({
+      title: "You submitted the following values:",
+    });
+    success.value = true;
   } catch (error) {
-    errorMessage.value = "Error sending magic link. Please try again.";
-    successMessage.value = "";
+    toast({
+      title: "Error sending magic link. Please try again.",
+    });
   }
-};
+});
+
+const errorMessage = ref<string | null>(null);
 
 onMounted(async () => {
   const token = route.query.token as string;
@@ -42,33 +70,23 @@ onMounted(async () => {
 
 <template>
   <AuthLayout>
-    <div class="auth-container">
-      <h1>Login</h1>
-      <form @submit.prevent="sendMagicLink">
-        <input v-model="email" type="email" placeholder="Enter your email" required />
-        <Button type="submit">Login with my email</Button>
+    <div v-if="success">
+      <p>Check your email and spams for your login link</p>
+    </div>
+    <div v-else>
+      <form :validation-schema="formSchema" @submit="onSubmit" class="space-y-5">
+        <FormField v-slot="{ componentField }" name="email">
+          <FormItem v-auto-animate>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input type="email" placeholder="Your email" v-bind="componentField" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+        <Button type="submit" class="w-full">Login with my email</Button>
       </form>
-      <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
-      <ErrorMessage v-if="errorMessage" :message="errorMessage" />
+      <p v-if="errorMessage" class="text-red-600 mt-4">{{ errorMessage }}</p>
     </div>
   </AuthLayout>
 </template>
-
-<style scoped lang="scss">
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-input,
-button {
-  width: 100%;
-}
-
-.success-message {
-  color: green;
-  margin-top: 1rem;
-}
-</style>

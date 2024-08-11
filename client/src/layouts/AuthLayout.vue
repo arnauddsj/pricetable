@@ -3,9 +3,7 @@
 </script>
 
 <template>
-  <div class="auth-layout">
-    <main class="auth-content">
-      <slot></slot>
-    </main>
+  <div class="flex flex-col items-center justify-center h-screen">
+    <slot></slot>
   </div>
 </template>

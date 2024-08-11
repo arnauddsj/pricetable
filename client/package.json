@@ -9,10 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@formkit/auto-animate": "^0.8.2",
     "@tanstack/vue-query": "^5.51.21",
     "@trpc/client": "^10.45.2",
     "@trpc/server": "^10.45.2",
     "@types/js-cookie": "^3.0.6",
+    "@vee-validate/zod": "^4.13.2",
+    "@vueuse/core": "^10.11.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "js-cookie": "^3.0.5",
@@ -22,8 +25,10 @@
     "server": "file:../server",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "vee-validate": "^4.13.2",
     "vue": "^3.4.31",
-    "vue-router": "^4.4.2"
+    "vue-router": "^4.4.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.1.0",
