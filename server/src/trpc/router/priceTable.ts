@@ -63,7 +63,8 @@ export const priceTableRouter = router({
     .query(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
       const priceTable = await priceTableRepository.findOne({
-        where: { id: input.id, user: { id: ctx.user.id } }
+        where: { id: input.id, user: { id: ctx.user.id } },
+        relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'template'],
       })
       if (!priceTable) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })

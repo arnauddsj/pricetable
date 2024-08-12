@@ -25,6 +25,8 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     translations: {},
     products: [],
     featureGroups: [],
+    prices: [],
+    template: {},
   })
 
   async function fetchPriceTable(id: string) {
@@ -33,12 +35,16 @@ export const usePriceTableStore = defineStore("priceTable", () => {
       console.log(data)
       if (data) {
         Object.assign(priceTable, data)
+        // Ensure that products are properly set
+        priceTable.products = data.products || []
+        // Ensure that featureGroups are properly set
+        priceTable.featureGroups = data.featureGroups || []
+        priceTable.template = data.template || {}
       }
     } catch (error) {
       console.error("Error fetching price table:", error)
     }
   }
-
 
   function setActiveSidebar(sidebar: string) {
     activeSidebar.value = sidebar
@@ -48,19 +54,54 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     Object.assign(priceTable, newData)
   }
 
-  function addProduct(product: Product) {
-    priceTable.products.push(product)
-  }
-
-  function updateProduct(productId: string, updatedProduct: Partial<Product>) {
-    const index = priceTable.products.findIndex((p) => p.id === productId)
-    if (index !== -1) {
-      priceTable.products[index] = { ...priceTable.products[index], ...updatedProduct }
+  async function addProduct(product: any) {
+    try {
+      const newProduct = await trpc.product.create.mutate({
+        priceTableId: priceTable.id,
+        ...product,
+      })
+      priceTable.products.push(newProduct)
+      return newProduct
+    } catch (error) {
+      console.error("Error adding product:", error)
+      throw error
     }
   }
 
-  function removeProduct(productId: string) {
-    priceTable.products = priceTable.products.filter((p) => p.id !== productId)
+  async function removeProduct(productId: string) {
+    try {
+      await trpc.product.delete.mutate({ id: productId })
+      priceTable.products = priceTable.products.filter(
+        (product: { id: string }) => product.id !== productId
+      )
+    } catch (error) {
+      console.error("Error removing product:", error)
+      throw error
+    }
+  }
+
+  async function updateProduct(productId: string, updatedProduct: Partial<Product>) {
+    try {
+      const result = await trpc.product.update.mutate({
+        id: productId,
+        ...updatedProduct,
+        stripeProductId: updatedProduct.stripeProductId || undefined,
+        paddleProductId: updatedProduct.paddleProductId || undefined,
+        prices: updatedProduct.prices?.map(price => ({
+          ...price,
+          unitAmount: Number(price.unitAmount),
+          checkoutUrl: price.checkoutUrl || undefined
+        }))
+      })
+      const index = priceTable.products.findIndex((p) => p.id === productId)
+      if (index !== -1) {
+        priceTable.products[index] = { ...priceTable.products[index], ...result }
+      }
+      return result
+    } catch (error) {
+      console.error("Error updating product:", error)
+      throw error
+    }
   }
 
   function addFeatureGroup(featureGroup: FeatureGroup) {
@@ -108,6 +149,6 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     updateFeatureGroup,
     removeFeatureGroup,
     handleSave,
-    fetchPriceTable
+    fetchPriceTable,
   }
 })
