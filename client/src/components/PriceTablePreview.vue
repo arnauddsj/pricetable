@@ -20,7 +20,7 @@ const renderPriceTable = async () => {
     renderedTable.value = await trpc.template.renderTable.query({
       tableId: props.priceTableId,
     });
-    const priceTable = await trpc.priceTable.getOne.query({ id: props.priceTableId });
+    const priceTable = await trpc.priceTable.getById.query({ id: props.priceTableId });
     currentVersion.value = priceTable?.template?.version || "N/A";
     checkForUpgrade();
   } catch (err) {

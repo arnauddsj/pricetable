@@ -58,7 +58,7 @@ export const priceTableRouter = router({
       return await priceTableRepository.find({ where: { user: { id: ctx.user.id } } })
     }),
 
-  getOne: protectedProcedure
+  getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)

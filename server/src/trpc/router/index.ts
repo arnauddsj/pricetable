@@ -4,6 +4,7 @@ import { AppDataSource } from "../../data-source"
 import { priceTableRouter } from "./priceTable"
 import { productRouter } from "./product"
 import { templateRouter } from "./template"
+import type { PriceTable, Product, Price, Feature, FeatureGroup } from '../../types/entities'
 
 export const appRouter = router({
   auth: authRouter,
@@ -22,5 +23,8 @@ export const appRouter = router({
 })
 
 export type AppRouter = typeof appRouter
+
+// Export entity types
+export type { PriceTable, Product, Price, Feature, FeatureGroup }
 
 export default appRouter

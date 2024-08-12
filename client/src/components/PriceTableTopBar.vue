@@ -1,53 +1,65 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { storeToRefs } from "pinia";
-import { useUserStore } from "@/stores/user";
 import { Button } from "@/components/ui/button";
+import { usePriceTableStore } from "@/stores/priceTable";
+import { useToast } from "@/components/ui/toast/use-toast";
 
+const { toast } = useToast();
 const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
-const router = useRouter();
-const route = useRoute();
-const userStore = useUserStore();
-const { isLoggedIn } = storeToRefs(userStore);
+const { handleSave, setActiveSidebar, activeSidebar } = usePriceTableStore();
 
-const navigateToAccount = () => {
-  if (isLoggedIn.value) {
-    router.push("/account");
-  } else {
-    router.push("/auth");
+const handleSaveButton = async () => {
+  try {
+    await handleSave();
+    toast({
+      title: "Success",
+      description: "Price table saved successfully.",
+    });
+  } catch (error) {
+    console.error("Error saving price table:", error);
+    toast({
+      title: "Error",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Failed to save price table. Please try again.",
+    });
   }
 };
 
-const emit = defineEmits(["save"]);
-
-const handleSave = () => {
-  emit("save");
-};
-
-const handleClose = () => {
-  router.push({ name: "home" });
-};
+const sidebarOptions = ["Settings", "Products", "Prices", "Features"];
 </script>
 
 <template>
-  <nav class="w-full flex justify-between p-4">
-    <div class="flex items-center gap-8">
+  <nav class="w-full flex flex px-8 gap-5">
+    <div class="flex items-center">
       <a class="logo" href="/">
         <component :is="logo" />
       </a>
-      <div class="flex items-center gap-4">
-        <router-link
-          to="/price-tables"
-          class="text-md font-semibold text-indigo-500 hover:text-indigo-800"
-          >Price Table</router-link
-        >
-      </div>
     </div>
-    <div class="flex items-center gap-4">
-      <Button @click="handleSave" variant="outline"> Save </Button>
-      <Button @click="handleClose" variant="outline"> Close </Button>
+    <div class="w-full flex justify-between p-4 shadow-sm">
+      <div class="flex items-center gap-4">
+        <button
+          v-for="option in sidebarOptions"
+          :key="option"
+          @click="setActiveSidebar(option)"
+          :class="[
+            'text-md font-medium text-indigo-500',
+            activeSidebar === option
+              ? 'text-indigo-900'
+              : 'text-indigo-500 hover:text-indigo-900',
+          ]"
+        >
+          {{ option }}
+        </button>
+      </div>
+      <button
+        @click="handleSaveButton"
+        class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+      >
+        Save
+      </button>
     </div>
   </nav>
 </template>
