@@ -2,6 +2,7 @@
 import { RouterView } from "vue-router";
 import { onMounted } from "vue";
 import { useUserStore } from "@/stores/user";
+import Toaster from "@/components/ui/toast/Toaster.vue";
 
 const userStore = useUserStore();
 
@@ -14,5 +15,6 @@ onMounted(async () => {
 </script>
 
 <template>
+  <Toaster />
   <RouterView />
 </template>

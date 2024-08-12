@@ -44,6 +44,14 @@ export class PriceTable {
 
   @Column({ default: false })
   useLocalization: boolean
+
+  @Column("jsonb", { nullable: true })
+  translations: {
+    [locale: string]: {
+      name: string
+      cycleOptions: string[]
+    }
+  } | null
 }
 
 @Entity()
@@ -84,6 +92,16 @@ export class Product {
   @ManyToMany(() => Feature)
   @JoinTable()
   features: Feature[]
+
+  @Column("jsonb", { nullable: true })
+  translations: {
+    [locale: string]: {
+      name: string
+      description: string
+      highlightText: string
+      buttonText: string
+    }
+  } | null
 }
 
 @Entity()
@@ -184,6 +202,14 @@ export class FeatureGroup {
 
   @OneToMany(() => Feature, feature => feature.group)
   features: Feature[]
+
+  @Column("jsonb", { nullable: true })
+  translations: {
+    [locale: string]: {
+      name: string
+      description: string
+    }
+  } | null
 }
 
 @Entity()
@@ -202,6 +228,14 @@ export class Feature {
 
   @ManyToOne(() => FeatureGroup, group => group.features)
   group: FeatureGroup
+
+  @Column("jsonb", { nullable: true })
+  translations: {
+    [locale: string]: {
+      name: string
+      description: string
+    }
+  } | null
 }
 
 @Entity()

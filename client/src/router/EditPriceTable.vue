@@ -18,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { z } from "zod";
+import { useForm } from "vee-validate";
+import { toTypedSchema } from "@vee-validate/zod";
 
 const route = useRoute();
 const router = useRouter();
@@ -37,6 +39,33 @@ const priceTable = ref<any>({
 });
 
 const showAddProductForm = ref(false);
+
+const validationSchema = toTypedSchema(
+  z.object({
+    name: z.string().min(1, "Name is required"),
+    stripePublicKey: z.string().optional(),
+    paddlePublicKey: z.string().optional(),
+    generalSettings: z.object({
+      baseCurrency: z.enum(["USD", "EUR", "GBP"]),
+      iconStyle: z.enum(["icon", "text"]),
+      paymentType: z.enum(["cycles", "one-time", "usage-based"]),
+    }),
+  })
+);
+
+const { handleSubmit, errors } = useForm({
+  validationSchema,
+  initialValues: {
+    name: "",
+    stripePublicKey: "",
+    paddlePublicKey: "",
+    generalSettings: {
+      baseCurrency: "USD",
+      iconStyle: "icon",
+      paymentType: "cycles",
+    },
+  },
+});
 
 const fetchPriceTable = async () => {
   try {
@@ -112,7 +141,6 @@ const updatePriceTable = async () => {
       title: "Success",
       description: "Price table updated successfully.",
     });
-    router.push({ name: "priceTableManagement" });
   } catch (error) {
     console.error("Error updating price table:", error);
     toast({
@@ -162,6 +190,22 @@ const removeProduct = async (productId: string) => {
   }
 };
 
+const handleSave = async () => {
+  try {
+    await updatePriceTable();
+    toast({
+      title: "Success",
+      description: "Price table saved successfully.",
+    });
+  } catch (error) {
+    console.error("Error saving price table:", error);
+    toast({
+      title: "Error",
+      description: "Failed to save price table. Please try again.",
+    });
+  }
+};
+
 onMounted(async () => {
   await fetchPriceTable();
   await fetchProducts();
@@ -169,112 +213,111 @@ onMounted(async () => {
 </script>
 
 <template>
-  <DefaultLayout>
-    <h1>Edit Price Table</h1>
+  <DefaultLayout @save="handleSave">
+    <div class="flex h-full">
+      <!-- Left sidebar -->
+      <aside class="w-80 bg-gray-100 p-4 overflow-y-auto">
+        <form class="space-y-4">
+          <FormField name="name">
+            <FormItem>
+              <FormLabel>Price Table Name</FormLabel>
+              <FormControl>
+                <Input v-model="priceTable.name" required />
+              </FormControl>
+            </FormItem>
+          </FormField>
 
-    <div v-if="priceTable.id" class="edit-price-table-container">
-      <form @submit.prevent="updatePriceTable" class="edit-form">
-        <FormField name="name">
-          <FormItem>
-            <FormLabel>Price Table Name</FormLabel>
-            <FormControl>
-              <Input v-model="priceTable.name" required />
-            </FormControl>
-          </FormItem>
-        </FormField>
+          <FormField name="stripePublicKey">
+            <FormItem>
+              <FormLabel>Stripe Public Key</FormLabel>
+              <FormControl>
+                <Input v-model="priceTable.stripePublicKey" />
+              </FormControl>
+            </FormItem>
+          </FormField>
 
-        <FormField name="stripePublicKey">
-          <FormItem>
-            <FormLabel>Stripe Public Key</FormLabel>
-            <FormControl>
-              <Input v-model="priceTable.stripePublicKey" />
-            </FormControl>
-          </FormItem>
-        </FormField>
+          <FormField name="paddlePublicKey">
+            <FormItem>
+              <FormLabel>Paddle Public Key</FormLabel>
+              <FormControl>
+                <Input v-model="priceTable.paddlePublicKey" />
+              </FormControl>
+            </FormItem>
+          </FormField>
 
-        <FormField name="paddlePublicKey">
-          <FormItem>
-            <FormLabel>Paddle Public Key</FormLabel>
-            <FormControl>
-              <Input v-model="priceTable.paddlePublicKey" />
-            </FormControl>
-          </FormItem>
-        </FormField>
+          <h3>General Settings</h3>
+          <FormField name="baseCurrency">
+            <FormItem>
+              <FormLabel>Base Currency</FormLabel>
+              <FormControl>
+                <select v-model="priceTable.generalSettings.baseCurrency">
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                </select>
+              </FormControl>
+            </FormItem>
+          </FormField>
 
-        <h3>General Settings</h3>
-        <FormField name="baseCurrency">
-          <FormItem>
-            <FormLabel>Base Currency</FormLabel>
-            <FormControl>
-              <select v-model="priceTable.generalSettings.baseCurrency">
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-              </select>
-            </FormControl>
-          </FormItem>
-        </FormField>
+          <FormField name="iconStyle">
+            <FormItem>
+              <FormLabel>Icon Style</FormLabel>
+              <FormControl>
+                <select v-model="priceTable.generalSettings.iconStyle">
+                  <option value="icon">Icon</option>
+                  <option value="text">Text</option>
+                </select>
+              </FormControl>
+            </FormItem>
+          </FormField>
 
-        <FormField name="iconStyle">
-          <FormItem>
-            <FormLabel>Icon Style</FormLabel>
-            <FormControl>
-              <select v-model="priceTable.generalSettings.iconStyle">
-                <option value="icon">Icon</option>
-                <option value="text">Text</option>
-              </select>
-            </FormControl>
-          </FormItem>
-        </FormField>
+          <FormField name="paymentType">
+            <FormItem>
+              <FormLabel>Payment Type</FormLabel>
+              <FormControl>
+                <select v-model="priceTable.generalSettings.paymentType">
+                  <option value="cycles">Cycles</option>
+                  <option value="one-time">One-time</option>
+                  <option value="usage-based">Usage-based</option>
+                </select>
+              </FormControl>
+            </FormItem>
+          </FormField>
+        </form>
+      </aside>
 
-        <FormField name="paymentType">
-          <FormItem>
-            <FormLabel>Payment Type</FormLabel>
-            <FormControl>
-              <select v-model="priceTable.generalSettings.paymentType">
-                <option value="cycles">Cycles</option>
-                <option value="one-time">One-time</option>
-                <option value="usage-based">Usage-based</option>
-              </select>
-            </FormControl>
-          </FormItem>
-        </FormField>
+      <!-- Main content -->
+      <main class="flex-grow flex">
+        <!-- Product list -->
+        <div class="w-64 p-4 border-r border-gray-200">
+          <button
+            class="w-full py-2 px-4 mb-4 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
+          >
+            + Add Product
+          </button>
+          <div class="space-y-2">
+            <div
+              v-for="product in priceTable.products"
+              :key="product.id"
+              class="flex justify-between items-center p-2 bg-white rounded-md shadow-sm"
+            >
+              <span>{{ product.name }}</span>
+              <button class="text-gray-500 hover:text-gray-700">•••</button>
+            </div>
+          </div>
+        </div>
 
-        <Button type="submit">Update Price Table</Button>
-      </form>
-
-      <div class="products-section">
-        <h2>Products</h2>
-        <ProductList :products="priceTable.products" @remove-product="removeProduct" />
-        <Button @click="showAddProductForm = true">Add Product</Button>
-        <AddProductForm
-          v-if="showAddProductForm"
-          @add-product="addProduct"
-          @cancel="showAddProductForm = false"
-        />
-      </div>
-
-      <PriceTablePreview :priceTableId="priceTable.id" />
+        <!-- Preview container -->
+        <div class="flex-grow p-4 bg-gray-100">
+          <div class="mb-4 flex justify-center">
+            <!-- Add device selector icons here -->
+          </div>
+          <div class="bg-white rounded-lg shadow-md p-4">
+            <PriceTablePreview v-if="priceTable.id" :priceTableId="priceTable.id" />
+            <div v-else>Loading...</div>
+          </div>
+        </div>
+      </main>
     </div>
-    <div v-else>Loading...</div>
   </DefaultLayout>
 </template>
-
-<style scoped>
-.edit-price-table-container {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 400px;
-}
-
-.products-section {
-  margin-top: 2rem;
-}
-</style>

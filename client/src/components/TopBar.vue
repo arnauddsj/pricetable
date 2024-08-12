@@ -1,32 +1,23 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { defineAsyncComponent } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "@/stores/user";
-import { Button } from "@/components/ui/button";
+
+const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
 const router = useRouter();
+
 const userStore = useUserStore();
 const { isLoggedIn } = storeToRefs(userStore);
-
-const navigateToAccount = () => {
-  if (isLoggedIn.value) {
-    router.push("/account");
-  } else {
-    router.push("/auth");
-  }
-};
 </script>
 
 <template>
-  <header class="w-full flex items-center justify-between px-4">
-    <a class="logo" href="/">
-      <img src="@/assets/vue.svg" alt="Logo" />
-      <span>QuickStart</span>
-    </a>
-    <nav class="flex items-center gap-4">
-      <Button @click="navigateToAccount" variant="outline">
-        {{ isLoggedIn ? "Account" : "Login" }}
-      </Button>
-    </nav>
-  </header>
+  <nav class="w-full flex justify-between p-4">
+    <div class="flex items-center gap-8">
+      <a class="logo" href="/">
+        <component :is="logo" />
+      </a>
+    </div>
+  </nav>
 </template>

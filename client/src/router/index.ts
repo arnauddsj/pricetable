@@ -7,8 +7,8 @@ const router = createRouter({
     {
       path: '',
       name: "home",
-      component: () => import("./Home.vue"),
-      meta: { requiresAuth: true },
+      component: () => import('@/router/PriceTableManagement.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/account',
@@ -20,12 +20,6 @@ const router = createRouter({
       path: '/auth',
       name: 'auth',
       component: () => import('@/router/auth/Auth.vue'),
-    },
-    {
-      path: '/price-tables',
-      name: 'priceTableManagement',
-      component: () => import('@/router/PriceTableManagement.vue'),
-      meta: { requiresAuth: true }
     },
     {
       path: '/price-tables/:id/edit',

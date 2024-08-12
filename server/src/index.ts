@@ -72,7 +72,7 @@ server.register(fastifyTRPCPlugin, {
   },
 })
 
-// Create the default template if it doesn't exist, make sure to point to the right version
+// Create the default template on load, make sure to point to the right version
 async function createDefaultTemplate() {
   const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
   const defaultTemplate = loadTemplate('0.2')
