@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { Input } from "@/components/ui/input";
@@ -58,12 +58,21 @@ const selectedCurrencies = computed({
     );
   },
   set: (value) => {
-    const newAvailableCurrencies = value.map((currency) => currency.code);
-    if (!newAvailableCurrencies.includes(baseCurrency.value)) {
-      newAvailableCurrencies.push(baseCurrency.value);
-    }
-    priceTable.value.currencySettings.availableCurrencies = newAvailableCurrencies;
+    const newSelectedCurrencies = value.map((currency) => currency.code);
+    priceTable.value.currencySettings.availableCurrencies = newSelectedCurrencies;
   },
+});
+
+// Watch for changes in the base currency
+watch(baseCurrency, (newBaseCurrency) => {
+  const availableCurrencies = priceTable.value.currencySettings.availableCurrencies || [];
+
+  // If the new base currency was in the available currencies, remove it
+  if (availableCurrencies.includes(newBaseCurrency)) {
+    priceTable.value.currencySettings.availableCurrencies = availableCurrencies.filter(
+      (code) => code !== newBaseCurrency
+    );
+  }
 });
 </script>
 
