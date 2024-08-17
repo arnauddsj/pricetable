@@ -1,7 +1,8 @@
 import { defineStore } from "pinia"
 import { ref, reactive, computed } from "vue"
 import { trpc } from "@/services/server"
-import type { PriceTable, Product, FeatureGroup } from "@/trpc/types" // This should now work, assuming you've set up the path correctly
+import type { PriceTable, Product, FeatureGroup } from "@/trpc/types"
+import type { PaymentTypeData } from '@/types'
 
 export const usePriceTableStore = defineStore("priceTable", () => {
   const activeSidebar = ref("Settings")
@@ -123,6 +124,10 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     priceTable.featureGroups = priceTable.featureGroups.filter((g) => g.id !== groupId)
   }
 
+  function updatePaymentTypes(paymentTypes: PaymentTypeData[]) {
+    priceTable.paymentTypes = paymentTypes
+  }
+
   async function handleSave() {
     try {
       if (!priceTable.id) {
@@ -155,6 +160,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     addFeatureGroup,
     updateFeatureGroup,
     removeFeatureGroup,
+    updatePaymentTypes,
     handleSave,
     fetchPriceTable,
   }

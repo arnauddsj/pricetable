@@ -12,11 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Plus, Pencil } from "lucide-vue-next";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import AddPaymentTypeForm from "@/components/AddPaymentTypeForm.vue";
+import type { PaymentTypeData } from "@/types";
 
 const { toast } = useToast();
 
 const priceTableStore = usePriceTableStore();
 const { priceTable } = storeToRefs(priceTableStore);
+const { updatePaymentTypes } = priceTableStore;
 
 const name = computed({
   get: () => priceTable.value.name,
@@ -74,6 +88,44 @@ watch(baseCurrency, (newBaseCurrency) => {
     );
   }
 });
+
+const paymentTypes = computed({
+  get: () => priceTable.value.paymentTypes,
+  set: (value) => (priceTable.value.paymentTypes = value),
+});
+
+const isDialogOpen = ref(false);
+const editingPaymentType = ref(null);
+
+const editPaymentType = (index: number) => {
+  editingPaymentType.value = { ...paymentTypes.value[index] };
+  isDialogOpen.value = true;
+};
+
+const savePaymentType = (paymentType: PaymentTypeData) => {
+  let updatedPaymentTypes;
+  if (editingPaymentType.value) {
+    updatedPaymentTypes = paymentTypes.value.map((pt) =>
+      pt.name === editingPaymentType.value?.name ? paymentType : pt
+    );
+  } else {
+    updatedPaymentTypes = [...paymentTypes.value, paymentType];
+  }
+  updatePaymentTypes(updatedPaymentTypes);
+  closeDialog();
+};
+
+const closeDialog = () => {
+  isDialogOpen.value = false;
+  editingPaymentType.value = null;
+};
+
+const availablePaymentTypes = ["cycle", "one-time", "usage-based"];
+
+const getAvailableTypes = computed(() => {
+  const usedTypes = paymentTypes.value.map((pt) => pt.type);
+  return availablePaymentTypes.filter((type) => !usedTypes.includes(type));
+});
 </script>
 
 <template>
@@ -130,7 +182,68 @@ watch(baseCurrency, (newBaseCurrency) => {
         <template #option="{ option }"> {{ option.name }} ({{ option.code }}) </template>
       </Multiselect>
     </div>
+
+    <div class="mb-4">
+      <label for="paymentTypes" class="block text-sm font-medium text-gray-700"
+        >Payment Types</label
+      >
+      <div
+        v-for="(paymentType, index) in paymentTypes"
+        :key="index"
+        class="flex items-center justify-between mt-2 p-2 bg-gray-100 rounded"
+      >
+        <span>{{ paymentType.name }}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          @click="editPaymentType(index)"
+          class="text-blue-500"
+        >
+          <Pencil class="h-5 w-5" />
+        </Button>
+      </div>
+      <Dialog v-model:open="isDialogOpen">
+        <DialogTrigger asChild>
+          <Button class="mt-2 flex items-center text-blue-500">
+            <Plus class="h-5 w-5 mr-1" />
+            Add Payment Type
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle
+              >{{ editingPaymentType ? "Edit" : "Add" }} Payment Type</DialogTitle
+            >
+            <DialogDescription>
+              {{ editingPaymentType ? "Edit the existing" : "Add a new" }} payment type
+              here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <AddPaymentTypeForm
+            :initial-data="editingPaymentType"
+            :available-types="getAvailableTypes"
+            @save="savePaymentType"
+            @cancel="closeDialog"
+          />
+          <DialogFooter>
+            <!-- Add any footer content if needed -->
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   </div>
 </template>
 
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

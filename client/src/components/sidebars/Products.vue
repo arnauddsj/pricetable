@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { useToast } from "@/components/ui/toast/use-toast";
 import ProductForm from "@/components/ProductForm.vue";
+import AddPaymentTypeForm from "@/components/AddPaymentTypeForm.vue";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/Icon.vue";
 
@@ -12,6 +13,7 @@ const priceTableStore = usePriceTableStore();
 const { priceTable } = storeToRefs(priceTableStore);
 
 const showProductForm = ref(false);
+const showPaymentTypeForm = ref(false);
 const selectedProductId = ref<string | null>(null);
 
 const addOrUpdateProduct = async (product: any) => {
@@ -73,17 +75,40 @@ const availableCurrencies = computed(
 const availableBillingCycles = computed(
   () => priceTable.value.generalSettings.cycleOptions
 );
+
+const addPaymentType = async (paymentType: any) => {
+  try {
+    await priceTableStore.addPaymentType(paymentType);
+    toast({
+      title: "Success",
+      description: "Payment type added successfully.",
+    });
+    showPaymentTypeForm.value = false;
+  } catch (error) {
+    console.error("Error adding payment type:", error);
+    toast({
+      title: "Error",
+      description: "Failed to add payment type. Please try again.",
+    });
+  }
+};
 </script>
 
 <template>
   <div class="products-container">
-    <div v-if="!showProductForm">
+    <div v-if="!showProductForm && !showPaymentTypeForm">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold">Products</h2>
-        <Button @click="showProductForm = true" class="flex items-center gap-2">
-          <Icon name="plus" class="w-5 h-5" />
-          Add Product
-        </Button>
+        <div>
+          <Button @click="showProductForm = true" class="flex items-center gap-2 mr-2">
+            <Icon name="plus" class="w-5 h-5" />
+            Add Product
+          </Button>
+          <Button @click="showPaymentTypeForm = true" class="flex items-center gap-2">
+            <Icon name="plus" class="w-5 h-5" />
+            Add Payment Type
+          </Button>
+        </div>
       </div>
 
       <div v-if="priceTable.products.length > 0" class="flex flex-col gap-4">
@@ -124,15 +149,23 @@ const availableBillingCycles = computed(
     </div>
 
     <ProductForm
-      v-else
+      v-else-if="showProductForm"
       :product="selectedProduct"
       :availableCurrencies="availableCurrencies"
       :availableBillingCycles="availableBillingCycles"
+      :paymentTypes="priceTable.paymentTypes"
       @save="addOrUpdateProduct"
       @cancel="
         showProductForm = false;
         selectedProductId = null;
       "
+    />
+
+    <AddPaymentTypeForm
+      v-else-if="showPaymentTypeForm"
+      :availableTypes="['cycle', 'one-time', 'usage-based']"
+      @add-payment-type="addPaymentType"
+      @cancel="showPaymentTypeForm = false"
     />
   </div>
 </template>
