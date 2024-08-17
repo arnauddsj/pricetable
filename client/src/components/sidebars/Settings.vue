@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil } from "lucide-vue-next";
+import { Plus, Pencil, Trash } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,25 +26,40 @@ import {
 import AddPaymentTypeForm from "@/components/AddPaymentTypeForm.vue";
 import type { PaymentTypeData } from "@/types";
 
+// Add these imports
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const props = defineProps<{
+  priceTable: any;
+}>();
+
 const { toast } = useToast();
 
 const priceTableStore = usePriceTableStore();
-const { priceTable } = storeToRefs(priceTableStore);
-const { updatePaymentTypes } = priceTableStore;
+const { updatePaymentTypes, removePaymentTypeAndPrices } = priceTableStore;
 
 const name = computed({
-  get: () => priceTable.value.name,
-  set: (value) => (priceTable.value.name = value),
+  get: () => props.priceTable.name,
+  set: (value) => (props.priceTable.name = value),
 });
 
 const paddlePublicKey = computed({
-  get: () => priceTable.value.paddlePublicKey,
-  set: (value) => (priceTable.value.paddlePublicKey = value),
+  get: () => props.priceTable.paddlePublicKey,
+  set: (value) => (props.priceTable.paddlePublicKey = value),
 });
 
 const stripePublicKey = computed({
-  get: () => priceTable.value.stripePublicKey,
-  set: (value) => (priceTable.value.stripePublicKey = value),
+  get: () => props.priceTable.stripePublicKey,
+  set: (value) => (props.priceTable.stripePublicKey = value),
 });
 
 const availableCurrencies = ref([
@@ -55,8 +70,8 @@ const availableCurrencies = ref([
 ]);
 
 const baseCurrency = computed({
-  get: () => priceTable.value.currencySettings.baseCurrency,
-  set: (value) => (priceTable.value.currencySettings.baseCurrency = value),
+  get: () => props.priceTable.currencySettings.baseCurrency,
+  set: (value) => (props.priceTable.currencySettings.baseCurrency = value),
 });
 
 const filteredAvailableCurrencies = computed(() =>
@@ -65,7 +80,7 @@ const filteredAvailableCurrencies = computed(() =>
 
 const selectedCurrencies = computed({
   get: () => {
-    const currencies = priceTable.value.currencySettings.availableCurrencies || [];
+    const currencies = props.priceTable.currencySettings.availableCurrencies || [];
     return availableCurrencies.value.filter(
       (currency) =>
         currencies.includes(currency.code) && currency.code !== baseCurrency.value
@@ -73,26 +88,45 @@ const selectedCurrencies = computed({
   },
   set: (value) => {
     const newSelectedCurrencies = value.map((currency) => currency.code);
-    priceTable.value.currencySettings.availableCurrencies = newSelectedCurrencies;
+    props.priceTable.currencySettings.availableCurrencies = newSelectedCurrencies;
   },
 });
 
 // Watch for changes in the base currency
 watch(baseCurrency, (newBaseCurrency) => {
-  const availableCurrencies = priceTable.value.currencySettings.availableCurrencies || [];
+  const availableCurrencies = props.priceTable.currencySettings.availableCurrencies || [];
 
   // If the new base currency was in the available currencies, remove it
   if (availableCurrencies.includes(newBaseCurrency)) {
-    priceTable.value.currencySettings.availableCurrencies = availableCurrencies.filter(
+    props.priceTable.currencySettings.availableCurrencies = availableCurrencies.filter(
       (code) => code !== newBaseCurrency
     );
   }
 });
 
+// Use the priceTable prop instead of accessing it from the store
 const paymentTypes = computed({
-  get: () => priceTable.value.paymentTypes,
-  set: (value) => (priceTable.value.paymentTypes = value),
+  get: () => props.priceTable.paymentTypes,
+  set: (value) => {
+    updatePaymentTypes(value);
+  },
 });
+
+const isAlertDialogOpen = ref(false);
+const paymentTypeToRemove = ref<string | null>(null);
+
+const removePaymentType = (paymentTypeName: string) => {
+  paymentTypeToRemove.value = paymentTypeName;
+  isAlertDialogOpen.value = true;
+};
+
+const confirmRemovePaymentType = () => {
+  if (paymentTypeToRemove.value) {
+    removePaymentTypeAndPrices(paymentTypeToRemove.value);
+    isAlertDialogOpen.value = false;
+    paymentTypeToRemove.value = null;
+  }
+};
 
 const isDialogOpen = ref(false);
 const editingPaymentType = ref(null);
@@ -193,14 +227,24 @@ const getAvailableTypes = computed(() => {
         class="flex items-center justify-between mt-2 p-2 bg-gray-100 rounded"
       >
         <span>{{ paymentType.name }}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          @click="editPaymentType(index)"
-          class="text-blue-500"
-        >
-          <Pencil class="h-5 w-5" />
-        </Button>
+        <div class="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            @click="editPaymentType(index)"
+            class="text-blue-500"
+          >
+            <Pencil class="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            @click="removePaymentType(paymentType.name)"
+            class="text-red-500"
+          >
+            <Trash class="h-5 w-5" />
+          </Button>
+        </div>
       </div>
       <Dialog v-model:open="isDialogOpen">
         <DialogTrigger asChild>
@@ -209,7 +253,7 @@ const getAvailableTypes = computed(() => {
             Add Payment Type
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent class="w-full max-w-4xl">
           <DialogHeader>
             <DialogTitle
               >{{ editingPaymentType ? "Edit" : "Add" }} Payment Type</DialogTitle
@@ -232,6 +276,22 @@ const getAvailableTypes = computed(() => {
       </Dialog>
     </div>
   </div>
+
+  <AlertDialog :open="isAlertDialogOpen" @update:open="isAlertDialogOpen = $event">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This action will remove the payment type and all associated prices. This action
+          cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel @click="isAlertDialogOpen = false">Cancel</AlertDialogCancel>
+        <AlertDialogAction @click="confirmRemovePaymentType">Continue</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
 
 <style src="vue-multiselect/dist/vue-multiselect.css"></style>

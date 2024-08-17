@@ -128,6 +128,16 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     priceTable.paymentTypes = paymentTypes
   }
 
+  function removePaymentTypeAndPrices(paymentTypeName: string) {
+    // Remove the payment type
+    priceTable.paymentTypes = priceTable.paymentTypes.filter(pt => pt.name !== paymentTypeName)
+
+    // Remove prices associated with the payment type
+    priceTable.products.forEach(product => {
+      product.prices = product.prices.filter(price => price.paymentTypeName !== paymentTypeName)
+    })
+  }
+
   async function handleSave() {
     try {
       if (!priceTable.id) {
@@ -161,6 +171,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     updateFeatureGroup,
     removeFeatureGroup,
     updatePaymentTypes,
+    removePaymentTypeAndPrices,
     handleSave,
     fetchPriceTable,
   }

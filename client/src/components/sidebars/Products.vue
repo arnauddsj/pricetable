@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { useToast } from "@/components/ui/toast/use-toast";
 import ProductForm from "@/components/ProductForm.vue";
-import AddPaymentTypeForm from "@/components/AddPaymentTypeForm.vue";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/Icon.vue";
 
@@ -70,28 +69,11 @@ const selectedProduct = computed(() => {
 });
 
 const availableCurrencies = computed(
-  () => priceTable.value.generalSettings.availableCurrencies
+  () => priceTable.value.currencySettings?.availableCurrencies || []
 );
 const availableBillingCycles = computed(
-  () => priceTable.value.generalSettings.cycleOptions
+  () => priceTable.value.paymentTypes?.map((pt) => pt.name) || []
 );
-
-const addPaymentType = async (paymentType: any) => {
-  try {
-    await priceTableStore.addPaymentType(paymentType);
-    toast({
-      title: "Success",
-      description: "Payment type added successfully.",
-    });
-    showPaymentTypeForm.value = false;
-  } catch (error) {
-    console.error("Error adding payment type:", error);
-    toast({
-      title: "Error",
-      description: "Failed to add payment type. Please try again.",
-    });
-  }
-};
 </script>
 
 <template>
@@ -103,10 +85,6 @@ const addPaymentType = async (paymentType: any) => {
           <Button @click="showProductForm = true" class="flex items-center gap-2 mr-2">
             <Icon name="plus" class="w-5 h-5" />
             Add Product
-          </Button>
-          <Button @click="showPaymentTypeForm = true" class="flex items-center gap-2">
-            <Icon name="plus" class="w-5 h-5" />
-            Add Payment Type
           </Button>
         </div>
       </div>
@@ -159,13 +137,6 @@ const addPaymentType = async (paymentType: any) => {
         showProductForm = false;
         selectedProductId = null;
       "
-    />
-
-    <AddPaymentTypeForm
-      v-else-if="showPaymentTypeForm"
-      :availableTypes="['cycle', 'one-time', 'usage-based']"
-      @add-payment-type="addPaymentType"
-      @cancel="showPaymentTypeForm = false"
     />
   </div>
 </template>
