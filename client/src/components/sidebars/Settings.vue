@@ -44,7 +44,6 @@ const baseCurrency = computed({
       <label for="name">Name</label>
       <Input v-model="name" id="name" />
     </div>
-
     <div>
       <label for="paddlePublicKey">Paddle Public Key</label>
       <Input v-model="paddlePublicKey" id="paddlePublicKey" />
@@ -53,20 +52,6 @@ const baseCurrency = computed({
     <div>
       <label for="stripePublicKey">Stripe Public Key</label>
       <Input v-model="stripePublicKey" id="stripePublicKey" />
-    </div>
-    <h3>General Settings</h3>
-    <div>
-      <label for="baseCurrency">Base Currency</label>
-      <Select v-model="baseCurrency">
-        <SelectTrigger>
-          <SelectValue :placeholder="baseCurrency" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="USD">USD</SelectItem>
-          <SelectItem value="EUR">EUR</SelectItem>
-          <SelectItem value="GBP">GBP</SelectItem>
-        </SelectContent>
-      </Select>
     </div>
   </div>
 </template>

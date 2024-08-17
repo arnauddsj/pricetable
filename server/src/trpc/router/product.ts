@@ -1,7 +1,7 @@
 import { router, protectedProcedure } from "../index"
 import { z } from "zod"
 import { AppDataSource } from "../../data-source"
-import { Product, Price } from "../../entity/PriceTable"
+import { Product, Price, PaymentType } from "../../entity/PriceTable"
 import { TRPCError } from "@trpc/server"
 
 export const productRouter = router({
@@ -21,25 +21,8 @@ export const productRouter = router({
           z.object({
             unitAmount: z.number(),
             currency: z.string(),
-            billingCycle: z.enum(["one-time", "monthly", "yearly"]),
-            trialPeriod: z
-              .object({
-                enabled: z.boolean(),
-                days: z.number(),
-              })
-              .optional()
-              .default({ enabled: false, days: 0 }),
+            billingCycle: z.string(),
             checkoutUrl: z.string().optional(),
-            overrideLocalization: z.boolean().optional(),
-            countryPrices: z
-              .array(
-                z.object({
-                  countryCode: z.string(),
-                  unitAmount: z.number(),
-                  currency: z.string(),
-                })
-              )
-              .optional(),
           })
         ),
       })
@@ -47,6 +30,7 @@ export const productRouter = router({
     .mutation(async ({ input }) => {
       const productRepository = AppDataSource.getRepository(Product)
       const priceRepository = AppDataSource.getRepository(Price)
+      const paymentTypeRepository = AppDataSource.getRepository(PaymentType)
 
       const product = productRepository.create({
         name: input.name,
@@ -64,13 +48,21 @@ export const productRouter = router({
 
       const prices = await Promise.all(
         input.prices.map(async (priceInput) => {
+          const paymentType = await paymentTypeRepository.findOne({
+            where: { name: priceInput.billingCycle, priceTable: { id: input.priceTableId } },
+          })
+          if (!paymentType) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: `Payment type not found for billing cycle: ${priceInput.billingCycle}`,
+            })
+          }
           const price = priceRepository.create({
-            ...priceInput,
-            product,
-            countryPrices: priceInput.countryPrices?.map((cp) => ({
-              ...cp,
-              price: undefined,
-            })),
+            unitAmount: priceInput.unitAmount,
+            currency: priceInput.currency,
+            paymentType: paymentType,
+            checkoutUrl: priceInput.checkoutUrl,
+            product: product
           })
           return await priceRepository.save(price)
         })
@@ -91,7 +83,6 @@ export const productRouter = router({
         buttonLink: z.string(),
         stripeProductId: z.string().optional(),
         paddleProductId: z.string().optional(),
-        translations: z.record(z.string(), z.any()).nullable(),
         prices: z.array(
           z.object({
             id: z.string().uuid().optional(),
@@ -99,70 +90,61 @@ export const productRouter = router({
             currency: z.string(),
             billingCycle: z.string(),
             checkoutUrl: z.string().optional(),
-            overrideLocalization: z.boolean().optional(),
-            countryPrices: z
-              .array(
-                z.object({
-                  countryCode: z.string(),
-                  unitAmount: z.number(),
-                  currency: z.string(),
-                })
-              )
-              .optional(),
           })
-        ),
+        ).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const productRepository = AppDataSource.getRepository(Product)
-      const priceRepository = AppDataSource.getRepository(Price)
+      const { id, prices, ...productData } = input
 
-      const product = await productRepository.findOne({
-        where: { id: input.id },
-        relations: ["prices"],
-      })
-      if (!product) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Product not found" })
-      }
+      // Start a transaction
+      await AppDataSource.transaction(async (transactionalEntityManager) => {
+        // Update the product
+        await transactionalEntityManager.update(Product, id, productData)
 
-      Object.assign(product, input)
-      await productRepository.save(product)
+        // Only handle prices if they are provided
+        if (prices && prices.length > 0) {
+          // Get existing price IDs
+          const existingPrices = await transactionalEntityManager.find(Price, {
+            where: { product: { id } },
+            select: ['id'],
+          })
+          const existingPriceIds = existingPrices.map(price => price.id)
 
-      const updatedPrices = await Promise.all(
-        input.prices.map(async (priceInput) => {
-          if (priceInput.id) {
-            const existingPrice = await priceRepository.findOne({
-              where: { id: priceInput.id },
-            })
-            if (existingPrice) {
-              Object.assign(existingPrice, priceInput)
-              return priceRepository.save(existingPrice)
+          // Determine which prices to keep, update, or add
+          const pricesToKeepIds = prices.filter(price => price.id).map(price => price.id as string)
+          const pricesToDelete = existingPriceIds.filter(id => !pricesToKeepIds.includes(id))
+
+          // Delete prices that are no longer present
+          if (pricesToDelete.length > 0) {
+            await transactionalEntityManager.delete(Price, pricesToDelete)
+          }
+
+          // Update or create prices
+          for (const price of prices) {
+            if (price.id) {
+              await transactionalEntityManager.update(Price, price.id, price)
+            } else {
+              const newPrice = transactionalEntityManager.create(Price, {
+                ...price,
+                product: { id },
+              })
+              await transactionalEntityManager.save(newPrice)
             }
           }
-          const newPrice = priceRepository.create({
-            ...priceInput,
-            product,
-            countryPrices: priceInput.countryPrices?.map((cp) => ({
-              ...cp,
-              price: undefined,
-            })),
-          })
-          return priceRepository.save(newPrice)
-        })
-      )
+        } else {
+          // If no prices are provided, remove all existing prices
+          await transactionalEntityManager.delete(Price, { product: { id } })
+        }
+      })
 
-      const inputPriceIds = input.prices
-        .map((p) => p.id)
-        .filter((id) => id !== undefined) as string[]
-      await priceRepository
-        .createQueryBuilder()
-        .delete()
-        .from(Price)
-        .where("product.id = :productId", { productId: product.id })
-        .andWhere("id NOT IN (:...ids)", { ids: inputPriceIds })
-        .execute()
+      // Fetch and return the updated product with its prices
+      const updatedProduct = await AppDataSource.getRepository(Product).findOne({
+        where: { id },
+        relations: ['prices'],
+      })
 
-      return { ...product, prices: updatedPrices }
+      return updatedProduct
     }),
 
   delete: protectedProcedure
@@ -197,7 +179,7 @@ export const productRouter = router({
 
       const product = await productRepository.findOne({
         where: { id: input.id },
-        relations: ["prices", "prices.countryPrices"],
+        relations: ["prices", "priceTable"],
       })
 
       if (!product) {

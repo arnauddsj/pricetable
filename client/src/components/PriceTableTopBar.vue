@@ -28,7 +28,7 @@ const handleSaveButton = async () => {
   }
 };
 
-const sidebarOptions = ["Settings", "Products", "Prices", "Features"];
+const sidebarOptions = ["Settings", "Products", "Features"];
 </script>
 
 <template>

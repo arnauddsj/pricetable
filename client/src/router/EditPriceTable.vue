@@ -6,7 +6,6 @@ import PriceTablePreview from "@/components/PriceTablePreview.vue";
 import { usePriceTableStore } from "@/stores/priceTable";
 import SettingsSidebar from "@/components/sidebars/Settings.vue";
 import ProductsSidebar from "@/components/sidebars/Products.vue";
-import PricesSidebar from "@/components/sidebars/Prices.vue";
 import FeaturesSidebar from "@/components/sidebars/Features.vue";
 import { useRoute } from "vue-router";
 import type { Component } from "vue";
@@ -21,7 +20,6 @@ const settingsSidebarRef = ref<InstanceType<typeof SettingsSidebar> | null>(null
 const sidebarComponents: Record<string, Component> = {
   Settings: SettingsSidebar,
   Products: ProductsSidebar,
-  Prices: PricesSidebar,
   Features: FeaturesSidebar,
 };
 

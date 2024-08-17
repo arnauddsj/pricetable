@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, Unique } from "typeorm"
 import { User } from "./User"
 
 @Entity()
@@ -12,29 +12,8 @@ export class PriceTable {
   @ManyToOne(() => User, user => user.priceTables)
   user: User
 
-  @Column("json")
-  generalSettings: {
-    baseCurrency: string
-    availableCurrencies: string[]
-    generalStyle: string
-    templateId?: string
-    iconStyle: 'icon' | 'text'
-    paymentType: 'cycles' | 'one-time' | 'usage-based'
-    cycleOptions?: string[] // e.g., ["month", "year"]
-    usageRanges?: { min: number; max: number; price: number }[]
-  }
-
-  @ManyToOne(() => PriceTableTemplate)
-  template: PriceTableTemplate
-
   @Column({ nullable: true })
   templateId: string
-
-  @OneToMany(() => Product, product => product.priceTable)
-  products: Product[]
-
-  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
-  featureGroups: FeatureGroup[]
 
   @Column({ nullable: true })
   stripePublicKey: string
@@ -42,16 +21,20 @@ export class PriceTable {
   @Column({ nullable: true })
   paddlePublicKey: string
 
-  @Column({ default: false })
-  useLocalization: boolean
+  @Column("simple-array", { default: "USD" })
+  availableCurrencies: string[]
 
-  @Column("jsonb", { nullable: true })
-  translations: {
-    [locale: string]: {
-      name: string
-      cycleOptions: string[]
-    }
-  } | null
+  @ManyToOne(() => PriceTableTemplate)
+  template: PriceTableTemplate
+
+  @OneToMany(() => Product, product => product.priceTable)
+  products: Product[]
+
+  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
+  featureGroups: FeatureGroup[]
+
+  @OneToMany(() => PaymentType, paymentType => paymentType.priceTable)
+  paymentTypes: PaymentType[]
 }
 
 @Entity()
@@ -65,9 +48,6 @@ export class Product {
   @Column("text")
   description: string
 
-  @OneToMany(() => Price, price => price.product)
-  prices: Price[]
-
   @Column()
   isHighlighted: boolean
 
@@ -78,7 +58,7 @@ export class Product {
   buttonText: string
 
   @Column()
-  buttonLink: string
+  buttonLink: string //Link can be overridden by price
 
   @Column({ nullable: true })
   stripeProductId: string
@@ -89,22 +69,16 @@ export class Product {
   @ManyToOne(() => PriceTable, priceTable => priceTable.products)
   priceTable: PriceTable
 
+  @OneToMany(() => Price, price => price.product)
+  prices: Price[]
+
   @ManyToMany(() => Feature)
   @JoinTable()
   features: Feature[]
-
-  @Column("jsonb", { nullable: true })
-  translations: {
-    [locale: string]: {
-      name: string
-      description: string
-      highlightText: string
-      buttonText: string
-    }
-  } | null
 }
 
 @Entity()
+@Unique(['product', 'paymentType', 'currency'])  // Ensure one price per product per paymentType per currency
 export class Price {
   @PrimaryGeneratedColumn("uuid")
   id: string
@@ -112,42 +86,48 @@ export class Price {
   @ManyToOne(() => Product, product => product.prices)
   product: Product
 
+  @ManyToOne(() => PaymentType)
+  paymentType: PaymentType
+
   @Column("decimal", { precision: 10, scale: 2 })
   unitAmount: number
 
   @Column()
   currency: string
-
-  @Column()
-  billingCycle: string
 
   @Column({ nullable: true })
   checkoutUrl: string //override the buttonLink
 
-  @Column({ default: false })
-  overrideLocalization: boolean
-  // will check first if any stripe/paddle localization is set, if not will use the countryPrices
-
-  @OneToMany(() => CountryPrice, countryPrice => countryPrice.price)
-  countryPrices: CountryPrice[]
+  @Column("jsonb", { nullable: true })
+  usageTiers: {
+    upTo: number
+    unitAmount: number
+  }[] | null
 }
 
 @Entity()
-export class CountryPrice {
+export class PaymentType {
   @PrimaryGeneratedColumn("uuid")
   id: string
 
-  @ManyToOne(() => Price, price => price.countryPrices)
-  price: Price
+  @Column()
+  name: string
 
   @Column()
-  countryCode: string
-
-  @Column("decimal", { precision: 10, scale: 2 })
-  unitAmount: number
+  type: 'cycle' | 'one-time' | 'usage-based'
 
   @Column()
-  currency: string
+  unitName: string
+
+  @Column("json", { nullable: true })
+  usageBasedConfig: {
+    min?: number
+    max?: number
+    step?: number
+  } | null
+
+  @ManyToOne(() => PriceTable, priceTable => priceTable.paymentTypes)
+  priceTable: PriceTable
 }
 
 @Entity()
@@ -202,14 +182,6 @@ export class FeatureGroup {
 
   @OneToMany(() => Feature, feature => feature.group)
   features: Feature[]
-
-  @Column("jsonb", { nullable: true })
-  translations: {
-    [locale: string]: {
-      name: string
-      description: string
-    }
-  } | null
 }
 
 @Entity()
@@ -226,16 +198,14 @@ export class Feature {
   @Column({ nullable: true })
   imageUrl: string
 
+  @Column({ nullable: true })
+  availableFeatureIconUrl: string
+
+  @Column({ nullable: true })
+  unavailableFeatureIconUrl: string
+
   @ManyToOne(() => FeatureGroup, group => group.features)
   group: FeatureGroup
-
-  @Column("jsonb", { nullable: true })
-  translations: {
-    [locale: string]: {
-      name: string
-      description: string
-    }
-  } | null
 }
 
 @Entity()
@@ -246,8 +216,36 @@ export class PriceTableTemplate {
   @Column({ nullable: true })
   name: string
 
-  @Column()
-  isPublic: boolean
+  @Column({
+    type: "enum",
+    enum: ["admin", "community"],
+    default: "community"
+  })
+  templateSource: "admin" | "community"
+
+  @Column({ default: false })
+  isPublic: boolean // If true, the template is available to all users, it's like isPublished
+
+  @Column({ default: false })
+  isFeatured: boolean
+
+  @Column({ default: false })
+  isPremium: boolean
+
+  @Column({ unique: true })
+  version: string
+
+  @Column({ nullable: true })
+  availableFeatureIconUrl: string
+
+  @Column({ nullable: true })
+  unavailableFeatureIconUrl: string
+
+  @Column("jsonb")
+  customCSS: Record<string, any>
+
+  @Column({ nullable: true })
+  originalTemplateId: string | null
 
   @ManyToOne(() => User, { nullable: true })
   user: User | null
@@ -255,15 +253,7 @@ export class PriceTableTemplate {
   @ManyToOne(() => PriceTableTemplate, { nullable: true })
   originalTemplate: PriceTableTemplate | null
 
-  @Column({ nullable: true })
-  originalTemplateId: string | null
-
   @OneToMany(() => PriceTable, priceTable => priceTable.template)
   priceTables: PriceTable[]
 
-  @Column({ unique: true })
-  version: string
-
-  @Column("jsonb")
-  customCSS: Record<string, any>
 }

@@ -1,12 +1,8 @@
 import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { PriceTable, Price, PriceTableTemplate } from '../../entity/PriceTable'
+import { PriceTable, PriceTableTemplate, PaymentType } from '../../entity/PriceTable'
 import { AppDataSource } from '../../data-source'
-// import NodeCache from 'node-cache'
-
-// Initialize cache / not implemented yet for html generation
-// const tableCache = new NodeCache({ stdTTL: 900 }) // 15 minutes
 
 const priceTableSchema = z.object({
   name: z.string(),
@@ -26,18 +22,12 @@ const priceTableSchema = z.object({
   }),
   stripePublicKey: z.string(),
   paddlePublicKey: z.string(),
-  localizationSettings: z.object({
-    enableAutomaticCurrencyConversion: z.boolean(),
-    countrySpecificPricing: z.record(z.string())
-  })
 })
 
 export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
-      // Get the latest template
-
       const defaultTemplate = await AppDataSource.getRepository(PriceTableTemplate).findOne({ where: { version: '0.2' } })
       if (!defaultTemplate) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Default template not found' })
@@ -49,6 +39,23 @@ export const priceTableRouter = router({
         template: defaultTemplate
       })
       await AppDataSource.getRepository(PriceTable).save(newPriceTable)
+
+      // Create default payment types
+      const paymentTypeRepository = AppDataSource.getRepository(PaymentType)
+      const defaultPaymentTypes = [
+        { name: 'one-time', type: 'one-time' as const, unitName: 'One-time' },
+        { name: 'monthly', type: 'cycle' as const, unitName: 'Month' },
+        { name: 'yearly', type: 'cycle' as const, unitName: 'Year' },
+      ]
+
+      for (const paymentType of defaultPaymentTypes) {
+        await paymentTypeRepository.save({
+          ...paymentType,
+          priceTable: newPriceTable,
+          usageBasedConfig: null,
+        })
+      }
+
       return newPriceTable
     }),
 
