@@ -1,4 +1,4 @@
-import { PriceTableTemplate } from '../entity/PriceTable'
+import { PriceTableTemplate } from '../entity/PriceTableTemplate'
 
 const htmlTemplate = `
 <div class="price-table">

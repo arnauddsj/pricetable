@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm"
 import { Token } from "./Token"
-import { PriceTable, PriceTableTemplate } from "./PriceTable"
+import { PriceTable } from "./PriceTable"
+import { PriceTableTemplate } from "./PriceTableTemplate"
 
 @Entity()
 export class User {

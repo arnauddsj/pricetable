@@ -1,15 +1,18 @@
 import { router, protectedProcedure } from "../index"
 import { z } from "zod"
 import { AppDataSource } from "../../data-source"
-import { Product, Price, PriceTable } from "../../entity/PriceTable"
+import { Product } from "../../entity/Product"
+import { Price } from "../../entity/Price"
+import { PriceTable } from "../../entity/PriceTable"
 import { TRPCError } from "@trpc/server"
-import { Not, In } from 'typeorm'  // Add this import
+import { Not, In } from 'typeorm'
 
 const priceSchema = z.object({
   id: z.string().uuid().optional(),
   unitAmount: z.number(),
   currency: z.string(),
   paymentTypeName: z.string(),
+  checkoutUrl: z.string().nullable(),
 })
 
 const productSchema = z.object({
@@ -19,6 +22,9 @@ const productSchema = z.object({
   isHighlighted: z.boolean(),
   highlightText: z.string().optional(),
   buttonText: z.string(),
+  buttonLink: z.string().nullable(),
+  stripeProductId: z.string().nullable(),
+  paddleProductId: z.string().nullable(),
   prices: z.array(priceSchema),
 })
 
@@ -60,6 +66,7 @@ export const productRouter = router({
             unitAmount: priceInput.unitAmount,
             currency: priceInput.currency,
             paymentTypeName: priceInput.paymentTypeName,
+            checkoutUrl: priceInput.checkoutUrl,
             product: product
           })
           return await priceRepository.save(price)
@@ -76,6 +83,8 @@ export const productRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const { priceTableId, product } = input
+
+      console.log("Received product update:", JSON.stringify(product, null, 2))
 
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
       const priceTable = await priceTableRepository.findOne({
@@ -113,11 +122,15 @@ export const productRouter = router({
           })
           await transactionalEntityManager.save(existingProduct)
 
+          console.log("Updating prices for product:", existingProduct.id)
+
           // Update prices
           for (const priceData of product.prices) {
+            console.log("Processing price:", JSON.stringify(priceData, null, 2))
             if (priceData.id) {
               // Update existing price
               await transactionalEntityManager.update(Price, priceData.id, priceData)
+              console.log("Updated existing price:", priceData.id)
             } else {
               // Create new price
               const newPrice = priceRepository.create({
@@ -125,6 +138,7 @@ export const productRouter = router({
                 product: existingProduct,
               })
               await transactionalEntityManager.save(newPrice)
+              console.log("Created new price:", newPrice.id)
             }
           }
 
@@ -153,10 +167,37 @@ export const productRouter = router({
         }
       })
 
-      return await productRepository.findOne({
+      // Fetch the updated product with prices
+      const updatedProduct = await productRepository.findOne({
         where: { id: existingProduct?.id || product.id },
         relations: ['prices'],
       })
+
+      if (!updatedProduct) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Updated product not found' })
+      }
+
+      // Transform the product to match the expected format
+      const transformedProduct = {
+        ...updatedProduct,
+        isHighlighted: updatedProduct.isHighlighted,
+        highlightText: updatedProduct.highlightText,
+        buttonText: updatedProduct.buttonText,
+        buttonLink: updatedProduct.buttonLink,
+        stripeProductId: updatedProduct.stripeProductId,
+        paddleProductId: updatedProduct.paddleProductId,
+        prices: updatedProduct.prices.map(price => ({
+          id: price.id,
+          unitAmount: price.unitAmount,
+          currency: price.currency,
+          paymentTypeName: price.paymentTypeName,
+          checkoutUrl: price.checkoutUrl,
+        })),
+      }
+
+      console.log("Returning updated product:", JSON.stringify(transformedProduct, null, 2))
+
+      return transformedProduct
     }),
 
   delete: protectedProcedure

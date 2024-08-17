@@ -70,7 +70,13 @@ export const usePriceTableStore = defineStore("priceTable", () => {
   function updateProductLocally(productId: string, updatedProduct: Partial<Product>) {
     const index = priceTable.products.findIndex((p) => p.id === productId)
     if (index !== -1) {
-      priceTable.products[index] = { ...priceTable.products[index], ...updatedProduct, buttonLink: updatedProduct.buttonLink || '' }
+      priceTable.products[index] = {
+        ...priceTable.products[index],
+        ...updatedProduct,
+        buttonLink: updatedProduct.buttonLink || null,
+        stripeProductId: updatedProduct.stripeProductId || null,
+        paddleProductId: updatedProduct.paddleProductId || null
+      }
     }
   }
 
@@ -86,18 +92,30 @@ export const usePriceTableStore = defineStore("priceTable", () => {
         throw new Error("Price table ID is missing")
       }
 
+      console.log("Products before save:", JSON.stringify(priceTable.products, null, 2))
+
       // Save all products, both new and existing
       const updatedProducts = await Promise.all(priceTable.products.map(async (product) => {
         const cleanedProduct = {
-          ...product,
-          buttonLink: product.buttonLink || undefined,
-          buttonText: product.buttonText || undefined,
-          highlightText: product.highlightText || undefined,
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          isHighlighted: product.isHighlighted,
+          highlightText: product.highlightText || '',
+          buttonText: product.buttonText || '',
+          buttonLink: product.buttonLink || '',
+          stripeProductId: product.stripeProductId || null,
+          paddleProductId: product.paddleProductId || null,
           prices: product.prices.map(price => ({
-            ...price,
-            checkoutUrl: price.checkoutUrl || undefined,
+            id: price.id,
+            unitAmount: price.unitAmount,
+            currency: price.currency,
+            paymentTypeName: price.paymentTypeName,
+            checkoutUrl: price.checkoutUrl || '',
           })),
         }
+
+        console.log("Cleaned product:", JSON.stringify(cleanedProduct, null, 2))
 
         if (product.isNew) {
           const { isNew, ...productData } = cleanedProduct
@@ -105,6 +123,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
             priceTableId: priceTable.id,
             ...productData,
           })
+          console.log("Created product:", JSON.stringify(createdProduct, null, 2))
           return { ...createdProduct, isNew: false }
         } else {
           // Update existing product
@@ -112,15 +131,18 @@ export const usePriceTableStore = defineStore("priceTable", () => {
             priceTableId: priceTable.id,
             product: cleanedProduct,
           })
+          console.log("Updated product:", JSON.stringify(updatedProduct, null, 2))
           return updatedProduct
         }
       }))
+
+      console.log("Updated products:", JSON.stringify(updatedProducts, null, 2))
 
       // Update the local products with the saved data
       priceTable.products = updatedProducts
 
       // Update price table
-      await trpc.priceTable.update.mutate({
+      const updatedPriceTable = await trpc.priceTable.update.mutate({
         id: priceTable.id,
         data: {
           ...priceTable,
@@ -131,6 +153,9 @@ export const usePriceTableStore = defineStore("priceTable", () => {
           products: updatedProducts,
         },
       })
+
+      console.log("Updated price table:", JSON.stringify(updatedPriceTable, null, 2))
+
     } catch (error) {
       console.error("Error updating price table:", error)
       throw error

@@ -1,7 +1,10 @@
 import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { PriceTable, PriceTableTemplate, Product, Price } from '../../entity/PriceTable'
+import { PriceTable } from '../../entity/PriceTable'
+import { PriceTableTemplate } from '../../entity/PriceTableTemplate'
+import { Product } from '../../entity/Product'
+import { Price } from '../../entity/Price'
 import { AppDataSource } from '../../data-source'
 
 const paymentTypeSchema = z.object({

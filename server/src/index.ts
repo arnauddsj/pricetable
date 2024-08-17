@@ -7,8 +7,7 @@ import fastifyCookie from '@fastify/cookie'
 import { AppDataSource } from './data-source'
 import dotenv from 'dotenv'
 import { loadTemplate } from './services/template'
-import { PriceTableTemplate } from './entity/PriceTable'
-
+import { PriceTableTemplate } from './entity/PriceTableTemplate'
 // Load environment variables
 dotenv.config()
 
