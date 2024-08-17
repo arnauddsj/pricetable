@@ -15,44 +15,44 @@ const showProductForm = ref(false);
 const showPaymentTypeForm = ref(false);
 const selectedProductId = ref<string | null>(null);
 
-const addOrUpdateProduct = async (product: any) => {
+const addOrUpdateProduct = (product: any) => {
   try {
     if (selectedProductId.value) {
-      await priceTableStore.updateProduct(selectedProductId.value, product);
+      priceTableStore.updateProductLocally(selectedProductId.value, product);
       toast({
         title: "Success",
-        description: "Product updated successfully.",
+        description: "Product updated locally.",
       });
     } else {
-      await priceTableStore.addProduct(product);
+      priceTableStore.addProductLocally(product);
       toast({
         title: "Success",
-        description: "Product added successfully.",
+        description: "Product added locally.",
       });
     }
     showProductForm.value = false;
     selectedProductId.value = null;
   } catch (error) {
-    console.error("Error adding/updating product:", error);
+    console.error("Error adding/updating product locally:", error);
     toast({
       title: "Error",
-      description: "Failed to add/update product. Please try again.",
+      description: "Failed to add/update product locally. Please try again.",
     });
   }
 };
 
-const removeProduct = async (productId: string) => {
+const removeProduct = (productId: string) => {
   try {
-    await priceTableStore.removeProduct(productId);
+    priceTableStore.removeProductLocally(productId);
     toast({
       title: "Success",
-      description: "Product removed successfully.",
+      description: "Product removed locally.",
     });
   } catch (error) {
-    console.error("Error removing product:", error);
+    console.error("Error removing product locally:", error);
     toast({
       title: "Error",
-      description: "Failed to remove product. Please try again.",
+      description: "Failed to remove product locally. Please try again.",
     });
   }
 };

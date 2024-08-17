@@ -1,7 +1,7 @@
 import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { PriceTable, PriceTableTemplate } from '../../entity/PriceTable'
+import { PriceTable, PriceTableTemplate, Product, Price } from '../../entity/PriceTable'
 import { AppDataSource } from '../../data-source'
 
 const paymentTypeSchema = z.object({
@@ -30,7 +30,11 @@ export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
-      const defaultTemplate = await AppDataSource.getRepository(PriceTableTemplate).findOne({ where: { version: '0.2' } })
+      const templateRepository = AppDataSource.getRepository(PriceTableTemplate)
+      const defaultTemplate = await templateRepository.findOne({
+        where: { isPublic: true },
+        order: { version: 'DESC' }
+      })
       if (!defaultTemplate) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Default template not found' })
       }
@@ -72,16 +76,40 @@ export const priceTableRouter = router({
   update: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
-      data: priceTableSchema
+      data: priceTableSchema.extend({
+        products: z.array(z.object({
+          id: z.string().uuid().optional(),
+          name: z.string(),
+          description: z.string(),
+          isHighlighted: z.boolean(),
+          highlightText: z.string().optional().nullable(),
+          buttonText: z.string().optional().nullable(),
+          buttonLink: z.string().optional().nullable(),
+          prices: z.array(z.object({
+            id: z.string().uuid().optional(),
+            unitAmount: z.number(),
+            currency: z.string(),
+            paymentTypeName: z.string(),
+            checkoutUrl: z.string().optional().nullable(),
+          })),
+        })).optional(),
+      }),
     }))
     .mutation(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const productRepository = AppDataSource.getRepository(Product)
+      const priceRepository = AppDataSource.getRepository(Price)
+
       const priceTable = await priceTableRepository.findOne({
-        where: { id: input.id, user: { id: ctx.user.id } }
+        where: { id: input.id, user: { id: ctx.user.id } },
+        relations: ['products', 'products.prices'],
       })
+
       if (!priceTable) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
       }
+
+      // Update price table properties
       priceTableRepository.merge(priceTable, input.data)
       if (input.data.currencySettings) {
         priceTable.currencySettings = {
@@ -89,6 +117,42 @@ export const priceTableRouter = router({
           ...input.data.currencySettings,
         }
       }
+
+      // Update products and prices
+      if (input.data.products) {
+        priceTable.products = await Promise.all(input.data.products.map(async (productData) => {
+          let product: Product
+          if (productData.id) {
+            product = await productRepository.findOne({ where: { id: productData.id } })
+            if (!product) {
+              throw new TRPCError({ code: 'NOT_FOUND', message: `Product with id ${productData.id} not found` })
+            }
+            productRepository.merge(product, productData)
+          } else {
+            product = productRepository.create(productData)
+            product.priceTable = priceTable
+          }
+
+          product.prices = await Promise.all(productData.prices.map(async (priceData) => {
+            let price: Price
+            if (priceData.id) {
+              price = await priceRepository.findOne({ where: { id: priceData.id } })
+              if (!price) {
+                throw new TRPCError({ code: 'NOT_FOUND', message: `Price with id ${priceData.id} not found` })
+              }
+              priceRepository.merge(price, priceData)
+            } else {
+              price = priceRepository.create(priceData)
+            }
+            price.product = product
+            return price
+          }))
+
+          await productRepository.save(product)
+          return product
+        }))
+      }
+
       await priceTableRepository.save(priceTable)
       return priceTable
     }),

@@ -79,10 +79,10 @@ export class Product {
   @Column({ nullable: true })
   highlightText: string
 
-  @Column()
+  @Column({ nullable: true })
   buttonText: string
 
-  @Column()
+  @Column({ nullable: true })
   buttonLink: string //Link can be overridden by price
 
   @Column({ nullable: true })

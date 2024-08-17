@@ -56,52 +56,83 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     Object.assign(priceTable, newData)
   }
 
-  async function addProduct(product: any) {
-    try {
-      const newProduct = await trpc.product.create.mutate({
-        priceTableId: priceTable.id,
-        ...product,
-      })
-      priceTable.products.push(newProduct)
-      return newProduct
-    } catch (error) {
-      console.error("Error adding product:", error)
-      throw error
+  function addProductLocally(product: any) {
+    const newProduct = {
+      id: crypto.randomUUID(),
+      ...product,
+      buttonLink: product.buttonLink || null,
+      isNew: true, // Flag to identify locally added products
+    }
+    priceTable.products.push(newProduct)
+    return newProduct
+  }
+
+  function updateProductLocally(productId: string, updatedProduct: Partial<Product>) {
+    const index = priceTable.products.findIndex((p) => p.id === productId)
+    if (index !== -1) {
+      priceTable.products[index] = { ...priceTable.products[index], ...updatedProduct, buttonLink: updatedProduct.buttonLink || '' }
     }
   }
 
-  async function removeProduct(productId: string) {
-    try {
-      await trpc.product.delete.mutate({ id: productId })
-      priceTable.products = priceTable.products.filter(
-        (product: { id: string }) => product.id !== productId
-      )
-    } catch (error) {
-      console.error("Error removing product:", error)
-      throw error
-    }
+  function removeProductLocally(productId: string) {
+    priceTable.products = priceTable.products.filter(
+      (product: { id: string }) => product.id !== productId
+    )
   }
 
-  async function updateProduct(productId: string, updatedProduct: Partial<Product>) {
+  async function handleSave() {
     try {
-      const result = await trpc.product.update.mutate({
-        id: productId,
-        ...updatedProduct,
-        stripeProductId: updatedProduct.stripeProductId || undefined,
-        paddleProductId: updatedProduct.paddleProductId || undefined,
-        prices: updatedProduct.prices?.map(price => ({
-          ...price,
-          unitAmount: Number(price.unitAmount),
-          checkoutUrl: price.checkoutUrl || undefined
-        }))
-      })
-      const index = priceTable.products.findIndex((p) => p.id === productId)
-      if (index !== -1) {
-        priceTable.products[index] = { ...priceTable.products[index], ...result }
+      if (!priceTable.id) {
+        throw new Error("Price table ID is missing")
       }
-      return result
+
+      // Save all products, both new and existing
+      const updatedProducts = await Promise.all(priceTable.products.map(async (product) => {
+        const cleanedProduct = {
+          ...product,
+          buttonLink: product.buttonLink || undefined,
+          buttonText: product.buttonText || undefined,
+          highlightText: product.highlightText || undefined,
+          prices: product.prices.map(price => ({
+            ...price,
+            checkoutUrl: price.checkoutUrl || undefined,
+          })),
+        }
+
+        if (product.isNew) {
+          const { isNew, ...productData } = cleanedProduct
+          const createdProduct = await trpc.product.create.mutate({
+            priceTableId: priceTable.id,
+            ...productData,
+          })
+          return { ...createdProduct, isNew: false }
+        } else {
+          // Update existing product
+          const updatedProduct = await trpc.product.update.mutate({
+            priceTableId: priceTable.id,
+            product: cleanedProduct,
+          })
+          return updatedProduct
+        }
+      }))
+
+      // Update the local products with the saved data
+      priceTable.products = updatedProducts
+
+      // Update price table
+      await trpc.priceTable.update.mutate({
+        id: priceTable.id,
+        data: {
+          ...priceTable,
+          currencySettings: {
+            ...priceTable.currencySettings,
+            baseCurrency: priceTable.currencySettings.baseCurrency,
+          },
+          products: updatedProducts,
+        },
+      })
     } catch (error) {
-      console.error("Error updating product:", error)
+      console.error("Error updating price table:", error)
       throw error
     }
   }
@@ -138,35 +169,14 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     })
   }
 
-  async function handleSave() {
-    try {
-      if (!priceTable.id) {
-        throw new Error("Price table ID is missing")
-      }
-      await trpc.priceTable.update.mutate({
-        id: priceTable.id,
-        data: {
-          ...priceTable,
-          currencySettings: {
-            ...priceTable.currencySettings,
-            baseCurrency: priceTable.currencySettings.baseCurrency,
-          },
-        },
-      })
-    } catch (error) {
-      console.error("Error updating price table:", error)
-      throw error
-    }
-  }
-
   return {
     activeSidebar: computed(() => activeSidebar.value),
     priceTable,
     setActiveSidebar,
     updatePriceTable,
-    addProduct,
-    updateProduct,
-    removeProduct,
+    addProductLocally,
+    updateProductLocally,
+    removeProductLocally,
     addFeatureGroup,
     updateFeatureGroup,
     removeFeatureGroup,
