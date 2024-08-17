@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { Input } from "@/components/ui/input";
+import Multiselect from "vue-multiselect";
+import { useToast } from "@/components/ui/toast/use-toast";
 import {
   Select,
   SelectContent,
@@ -10,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/toast/use-toast";
 
 const { toast } = useToast();
 
@@ -32,9 +33,37 @@ const stripePublicKey = computed({
   set: (value) => (priceTable.value.stripePublicKey = value),
 });
 
+const availableCurrencies = ref([
+  { code: "USD", name: "US Dollar" },
+  { code: "EUR", name: "Euro" },
+  { code: "GBP", name: "British Pound" },
+  { code: "JPY", name: "Japanese Yen" },
+]);
+
 const baseCurrency = computed({
-  get: () => priceTable.value.generalSettings.baseCurrency,
-  set: (value) => (priceTable.value.generalSettings.baseCurrency = value),
+  get: () => priceTable.value.currencySettings.baseCurrency,
+  set: (value) => (priceTable.value.currencySettings.baseCurrency = value),
+});
+
+const filteredAvailableCurrencies = computed(() =>
+  availableCurrencies.value.filter((currency) => currency.code !== baseCurrency.value)
+);
+
+const selectedCurrencies = computed({
+  get: () => {
+    const currencies = priceTable.value.currencySettings.availableCurrencies || [];
+    return availableCurrencies.value.filter(
+      (currency) =>
+        currencies.includes(currency.code) && currency.code !== baseCurrency.value
+    );
+  },
+  set: (value) => {
+    const newAvailableCurrencies = value.map((currency) => currency.code);
+    if (!newAvailableCurrencies.includes(baseCurrency.value)) {
+      newAvailableCurrencies.push(baseCurrency.value);
+    }
+    priceTable.value.currencySettings.availableCurrencies = newAvailableCurrencies;
+  },
 });
 </script>
 
@@ -53,5 +82,46 @@ const baseCurrency = computed({
       <label for="stripePublicKey">Stripe Public Key</label>
       <Input v-model="stripePublicKey" id="stripePublicKey" />
     </div>
+
+    <div class="mb-4">
+      <label for="baseCurrency" class="block text-sm font-medium text-gray-700"
+        >Base Currency</label
+      >
+      <Select v-model="baseCurrency">
+        <SelectTrigger class="w-full">
+          <SelectValue placeholder="Select base currency" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem
+            v-for="currency in availableCurrencies"
+            :key="currency.code"
+            :value="currency.code"
+          >
+            {{ currency.name }} ({{ currency.code }})
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    <div class="mb-4">
+      <label for="availableCurrencies" class="block text-sm font-medium text-gray-700"
+        >Available Currencies</label
+      >
+      <Multiselect
+        v-model="selectedCurrencies"
+        :options="filteredAvailableCurrencies"
+        :multiple="true"
+        :close-on-select="false"
+        :clear-on-select="false"
+        :preserve-search="true"
+        placeholder="Select currencies"
+        label="name"
+        track-by="code"
+      >
+        <template #option="{ option }"> {{ option.name }} ({{ option.code }}) </template>
+      </Multiselect>
+    </div>
   </div>
 </template>
+
+<style src="vue-multiselect/dist/vue-multiselect.css"></style>

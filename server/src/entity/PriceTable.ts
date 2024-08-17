@@ -21,8 +21,16 @@ export class PriceTable {
   @Column({ nullable: true })
   paddlePublicKey: string
 
-  @Column("simple-array", { default: "USD" })
-  availableCurrencies: string[]
+  @Column("jsonb", {
+    default: {
+      baseCurrency: "USD",
+      availableCurrencies: ["USD"]
+    }
+  })
+  currencySettings: {
+    baseCurrency: string
+    availableCurrencies: string[]
+  }
 
   @ManyToOne(() => PriceTableTemplate)
   template: PriceTableTemplate
@@ -33,8 +41,25 @@ export class PriceTable {
   @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
   featureGroups: FeatureGroup[]
 
-  @OneToMany(() => PaymentType, paymentType => paymentType.priceTable)
-  paymentTypes: PaymentType[]
+  @Column("jsonb", {
+    default: [
+      {
+        name: "Month",
+        type: "cycle",
+        unitName: "/month"
+      }
+    ]
+  })
+  paymentTypes: {
+    name: string
+    type: 'cycle' | 'one-time' | 'usage-based'
+    unitName: string
+    usageBasedConfig?: {
+      min?: number
+      max?: number
+      step?: number
+    } | null
+  }[]
 }
 
 @Entity()
@@ -78,7 +103,7 @@ export class Product {
 }
 
 @Entity()
-@Unique(['product', 'paymentType', 'currency'])  // Ensure one price per product per paymentType per currency
+@Unique(['product', 'paymentTypeName', 'currency'])
 export class Price {
   @PrimaryGeneratedColumn("uuid")
   id: string
@@ -86,8 +111,8 @@ export class Price {
   @ManyToOne(() => Product, product => product.prices)
   product: Product
 
-  @ManyToOne(() => PaymentType)
-  paymentType: PaymentType
+  @Column()
+  paymentTypeName: string
 
   @Column("decimal", { precision: 10, scale: 2 })
   unitAmount: number
@@ -103,31 +128,6 @@ export class Price {
     upTo: number
     unitAmount: number
   }[] | null
-}
-
-@Entity()
-export class PaymentType {
-  @PrimaryGeneratedColumn("uuid")
-  id: string
-
-  @Column()
-  name: string
-
-  @Column()
-  type: 'cycle' | 'one-time' | 'usage-based'
-
-  @Column()
-  unitName: string
-
-  @Column("json", { nullable: true })
-  usageBasedConfig: {
-    min?: number
-    max?: number
-    step?: number
-  } | null
-
-  @ManyToOne(() => PriceTable, priceTable => priceTable.paymentTypes)
-  priceTable: PriceTable
 }
 
 @Entity()
@@ -216,13 +216,6 @@ export class PriceTableTemplate {
   @Column({ nullable: true })
   name: string
 
-  @Column({
-    type: "enum",
-    enum: ["admin", "community"],
-    default: "community"
-  })
-  templateSource: "admin" | "community"
-
   @Column({ default: false })
   isPublic: boolean // If true, the template is available to all users, it's like isPublished
 
@@ -256,4 +249,34 @@ export class PriceTableTemplate {
   @OneToMany(() => PriceTable, priceTable => priceTable.template)
   priceTables: PriceTable[]
 
+  @Column("jsonb", {
+    default: [
+      {
+        name: "Month",
+        type: "cycle",
+        unitName: "/month"
+      }
+    ]
+  })
+  paymentTypes: {
+    name: string
+    type: 'cycle' | 'one-time' | 'usage-based'
+    unitName: string
+    usageBasedConfig?: {
+      min?: number
+      max?: number
+      step?: number
+    } | null
+  }[]
+
+  @Column("jsonb", {
+    default: {
+      baseCurrency: "USD",
+      availableCurrencies: ["USD"]
+    }
+  })
+  currencySettings: {
+    baseCurrency: string
+    availableCurrencies: string[]
+  }
 }

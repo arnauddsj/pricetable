@@ -2,14 +2,8 @@
 import { ref, defineProps, defineEmits, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -17,13 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import PriceForm from "@/components/PriceForm.vue";
 
 const props = defineProps<{
   product?: any;
   availableCurrencies: string[];
-  availableBillingCycles: string[];
+  paymentTypes: {
+    name: string;
+    type: "cycle" | "one-time" | "usage-based";
+    unitName: string;
+  }[];
 }>();
 
 const emit = defineEmits<{
@@ -47,7 +44,7 @@ const editingPriceIndex = ref<number | null>(null);
 const currentEditingPrice = ref({
   unitAmount: 0,
   currency: "",
-  billingCycle: "",
+  paymentTypeName: "",
   checkoutUrl: "",
 });
 
@@ -57,7 +54,7 @@ const addPrice = () => {
   currentEditingPrice.value = {
     unitAmount: 0,
     currency: props.availableCurrencies[0],
-    billingCycle: props.availableBillingCycles[0],
+    paymentTypeName: props.paymentTypes[0].name,
     checkoutUrl: "",
   };
 };
@@ -102,103 +99,73 @@ watch(
 </script>
 
 <template>
-  <Form @submit.prevent="saveProduct">
-    <FormField name="name" v-slot="{ field }">
-      <FormItem>
-        <FormLabel>Product Name</FormLabel>
-        <FormControl>
-          <Input v-model="editedProduct.name" v-bind="field" required />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+  <div>
+    <div class="space-y-4">
+      <div>
+        <Label for="name">Product Name</Label>
+        <Input id="name" v-model="editedProduct.name" required />
+      </div>
 
-    <FormField name="description" v-slot="{ field }">
-      <FormItem>
-        <FormLabel>Description</FormLabel>
-        <FormControl>
-          <Input v-model="editedProduct.description" v-bind="field" required />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <div>
+        <Label for="description">Description</Label>
+        <Input id="description" v-model="editedProduct.description" required />
+      </div>
 
-    <FormField name="isHighlighted" v-slot="{ field }">
-      <FormItem
-        class="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
-      >
-        <FormControl>
-          <Checkbox v-model="editedProduct.isHighlighted" v-bind="field" />
-        </FormControl>
-        <div class="space-y-1 leading-none">
-          <FormLabel>Highlight this product</FormLabel>
-        </div>
-      </FormItem>
-    </FormField>
+      <div class="flex items-center space-x-2">
+        <Checkbox id="isHighlighted" v-model="editedProduct.isHighlighted" />
+        <Label for="isHighlighted">Highlight this product</Label>
+      </div>
 
-    <FormField v-if="editedProduct.isHighlighted" name="highlightText" v-slot="{ field }">
-      <FormItem>
-        <FormLabel>Highlight Text</FormLabel>
-        <FormControl>
-          <Input v-model="editedProduct.highlightText" v-bind="field" />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <div v-if="editedProduct.isHighlighted">
+        <Label for="highlightText">Highlight Text</Label>
+        <Input id="highlightText" v-model="editedProduct.highlightText" />
+      </div>
 
-    <FormField name="buttonText" v-slot="{ field }">
-      <FormItem>
-        <FormLabel>Button Text</FormLabel>
-        <FormControl>
-          <Input v-model="editedProduct.buttonText" v-bind="field" />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <div>
+        <Label for="buttonText">Button Text</Label>
+        <Input id="buttonText" v-model="editedProduct.buttonText" />
+      </div>
 
-    <FormField name="buttonLink" v-slot="{ field }">
-      <FormItem>
-        <FormLabel>Button Link</FormLabel>
-        <FormControl>
-          <Input v-model="editedProduct.buttonLink" v-bind="field" />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    </FormField>
+      <div>
+        <Label for="buttonLink">Button Link</Label>
+        <Input id="buttonLink" v-model="editedProduct.buttonLink" />
+      </div>
 
-    <!-- Prices section -->
-    <div class="mt-6">
-      <h3 class="text-lg font-medium text-gray-900">Prices</h3>
-      <div v-for="(price, index) in editedProduct.prices" :key="index" class="mt-2">
-        <div class="flex justify-between items-center">
-          <span
-            >{{ price.unitAmount }} {{ price.currency }} / {{ price.billingCycle }}</span
-          >
-          <div>
-            <Button @click="editPrice(index)" variant="outline" size="sm" class="mr-2"
-              >Edit</Button
+      <!-- Prices section -->
+      <div class="mt-6">
+        <h3 class="text-lg font-medium text-gray-900">Prices</h3>
+        <div v-for="(price, index) in editedProduct.prices" :key="index" class="mt-2">
+          <div class="flex justify-between items-center">
+            <span
+              >{{ price.unitAmount }} {{ price.currency }}
+              {{ price.paymentTypeName }}</span
             >
-            <Button @click="removePrice(index)" variant="outline" size="sm"
-              >Remove</Button
-            >
+            <div>
+              <Button @click="editPrice(index)" variant="outline" size="sm" class="mr-2"
+                >Edit</Button
+              >
+              <Button @click="removePrice(index)" variant="outline" size="sm"
+                >Remove</Button
+              >
+            </div>
           </div>
         </div>
+        <Button @click="addPrice" class="mt-4">Add Price</Button>
       </div>
-      <Button @click="addPrice" class="mt-4">Add Price</Button>
-    </div>
 
-    <PriceForm
-      v-if="showPriceForm"
-      :price="currentEditingPrice"
-      :availableCurrencies="availableCurrencies"
-      :availableBillingCycles="availableBillingCycles"
-      @update="updatePrice"
-      @cancel="cancelPriceEdit"
-    />
+      <PriceForm
+        v-if="showPriceForm"
+        :price="currentEditingPrice"
+        :availableCurrencies="availableCurrencies"
+        :paymentTypes="paymentTypes"
+        @update="updatePrice"
+        @cancel="cancelPriceEdit"
+      />
 
-    <div class="mt-6 flex justify-end space-x-2">
-      <Button type="button" variant="outline" @click="$emit('cancel')">Cancel</Button>
-      <Button type="submit">Save Product</Button>
+      <div class="flex justify-end space-x-2">
+        <Button variant="outline" @click="$emit('cancel')">Cancel</Button>
+        <Button @click="saveProduct">Save Product</Button>
+      </div>
     </div>
-  </Form>
+  </div>
 </template>

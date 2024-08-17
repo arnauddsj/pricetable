@@ -22,15 +22,16 @@ const newPriceTable = ref({
     availableCurrencies: ["USD"],
     generalStyle: "default",
     iconStyle: "icon" as "text" | "icon",
-    paymentType: "cycles" as "cycles" | "one-time" | "usage-based",
-    cycleOptions: ["month", "year"],
   },
   stripePublicKey: "",
   paddlePublicKey: "",
-  localizationSettings: {
-    enableAutomaticCurrencyConversion: false,
-    countrySpecificPricing: {},
-  },
+  paymentTypes: [
+    {
+      name: "Month",
+      type: "cycle",
+      unitName: "/month",
+    },
+  ],
 });
 
 const fetchPriceTables = async () => {

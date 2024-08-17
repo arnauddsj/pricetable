@@ -15,11 +15,15 @@ const props = defineProps<{
     id?: string;
     unitAmount: number;
     currency: string;
-    billingCycle: string;
+    paymentTypeName: string;
     checkoutUrl?: string;
   };
   availableCurrencies: string[];
-  availableBillingCycles: string[];
+  paymentTypes: {
+    name: string;
+    type: "cycle" | "one-time" | "usage-based";
+    unitName: string;
+  }[];
 }>();
 
 const emit = defineEmits<{
@@ -81,20 +85,20 @@ const cancelEdit = () => {
         </Select>
       </div>
       <div class="flex-1">
-        <label for="billingCycle" class="block text-sm font-medium text-gray-700"
-          >Billing Cycle</label
-        >
-        <Select v-model="localPrice.billingCycle">
+        <label for="paymentTypeName" class="block text-sm font-medium text-gray-700">
+          Payment Type
+        </label>
+        <Select v-model="localPrice.paymentTypeName">
           <SelectTrigger>
-            <SelectValue :placeholder="localPrice.billingCycle" />
+            <SelectValue :placeholder="localPrice.paymentTypeName" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem
-              v-for="cycle in availableBillingCycles"
-              :key="cycle"
-              :value="cycle"
+              v-for="paymentType in paymentTypes"
+              :key="paymentType.name"
+              :value="paymentType.name"
             >
-              {{ cycle }}
+              {{ paymentType.unitName }}
             </SelectItem>
           </SelectContent>
         </Select>

@@ -9,15 +9,9 @@ export const usePriceTableStore = defineStore("priceTable", () => {
   const priceTable = reactive<PriceTable>({
     id: "",
     name: "",
-    generalSettings: {
+    currencySettings: {
       baseCurrency: "USD",
-      availableCurrencies: ["USD"],
-      generalStyle: "default",
-      templateId: "",
-      iconStyle: "icon",
-      paymentType: "cycles",
-      cycleOptions: ["month", "year"],
-      usageRanges: [],
+      availableCurrencies: ["USD"]
     },
     stripePublicKey: "",
     paddlePublicKey: "",
@@ -27,6 +21,13 @@ export const usePriceTableStore = defineStore("priceTable", () => {
     featureGroups: [],
     prices: [],
     template: {},
+    paymentTypes: [
+      {
+        name: "Month",
+        type: "cycle",
+        unitName: "/month"
+      }
+    ],
   })
 
   async function fetchPriceTable(id: string) {
@@ -129,7 +130,13 @@ export const usePriceTableStore = defineStore("priceTable", () => {
       }
       await trpc.priceTable.update.mutate({
         id: priceTable.id,
-        data: priceTable,
+        data: {
+          ...priceTable,
+          currencySettings: {
+            ...priceTable.currencySettings,
+            baseCurrency: priceTable.currencySettings.baseCurrency,
+          },
+        },
       })
     } catch (error) {
       console.error("Error updating price table:", error)

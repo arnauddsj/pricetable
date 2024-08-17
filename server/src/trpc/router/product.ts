@@ -1,8 +1,26 @@
 import { router, protectedProcedure } from "../index"
 import { z } from "zod"
 import { AppDataSource } from "../../data-source"
-import { Product, Price, PaymentType } from "../../entity/PriceTable"
+import { Product, Price, PriceTable } from "../../entity/PriceTable"
 import { TRPCError } from "@trpc/server"
+import { Not, In } from 'typeorm'  // Add this import
+
+const priceSchema = z.object({
+  id: z.string().uuid().optional(),
+  unitAmount: z.number(),
+  currency: z.string(),
+  paymentTypeName: z.string(),
+})
+
+const productSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string(),
+  description: z.string(),
+  isHighlighted: z.boolean(),
+  highlightText: z.string().optional(),
+  buttonText: z.string(),
+  prices: z.array(priceSchema),
+})
 
 export const productRouter = router({
   create: protectedProcedure
@@ -14,23 +32,14 @@ export const productRouter = router({
         isHighlighted: z.boolean(),
         highlightText: z.string().optional(),
         buttonText: z.string(),
-        buttonLink: z.string(),
         stripeProductId: z.string().optional(),
         paddleProductId: z.string().optional(),
-        prices: z.array(
-          z.object({
-            unitAmount: z.number(),
-            currency: z.string(),
-            billingCycle: z.string(),
-            checkoutUrl: z.string().optional(),
-          })
-        ),
+        prices: z.array(priceSchema),
       })
     )
     .mutation(async ({ input }) => {
       const productRepository = AppDataSource.getRepository(Product)
       const priceRepository = AppDataSource.getRepository(Price)
-      const paymentTypeRepository = AppDataSource.getRepository(PaymentType)
 
       const product = productRepository.create({
         name: input.name,
@@ -38,7 +47,6 @@ export const productRouter = router({
         isHighlighted: input.isHighlighted,
         highlightText: input.highlightText,
         buttonText: input.buttonText,
-        buttonLink: input.buttonLink,
         stripeProductId: input.stripeProductId,
         paddleProductId: input.paddleProductId,
         priceTable: { id: input.priceTableId },
@@ -48,20 +56,10 @@ export const productRouter = router({
 
       const prices = await Promise.all(
         input.prices.map(async (priceInput) => {
-          const paymentType = await paymentTypeRepository.findOne({
-            where: { name: priceInput.billingCycle, priceTable: { id: input.priceTableId } },
-          })
-          if (!paymentType) {
-            throw new TRPCError({
-              code: 'NOT_FOUND',
-              message: `Payment type not found for billing cycle: ${priceInput.billingCycle}`,
-            })
-          }
           const price = priceRepository.create({
             unitAmount: priceInput.unitAmount,
             currency: priceInput.currency,
-            paymentType: paymentType,
-            checkoutUrl: priceInput.checkoutUrl,
+            paymentTypeName: priceInput.paymentTypeName,
             product: product
           })
           return await priceRepository.save(price)
@@ -72,79 +70,93 @@ export const productRouter = router({
     }),
 
   update: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        name: z.string(),
-        description: z.string(),
-        isHighlighted: z.boolean(),
-        highlightText: z.string().optional(),
-        buttonText: z.string(),
-        buttonLink: z.string(),
-        stripeProductId: z.string().optional(),
-        paddleProductId: z.string().optional(),
-        prices: z.array(
-          z.object({
-            id: z.string().uuid().optional(),
-            unitAmount: z.number(),
-            currency: z.string(),
-            billingCycle: z.string(),
-            checkoutUrl: z.string().optional(),
-          })
-        ).optional(),
+    .input(z.object({
+      priceTableId: z.string().uuid(),
+      product: productSchema,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { priceTableId, product } = input
+
+      const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const priceTable = await priceTableRepository.findOne({
+        where: { id: priceTableId, user: { id: ctx.user.id } },
+        relations: ['products', 'products.prices'],
       })
-    )
-    .mutation(async ({ input }) => {
-      const { id, prices, ...productData } = input
 
-      // Start a transaction
+      if (!priceTable) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
+      }
+
+      const productRepository = AppDataSource.getRepository(Product)
+      const priceRepository = AppDataSource.getRepository(Price)
+
+      let existingProduct: Product | null = null
+      if (product.id) {
+        existingProduct = await productRepository.findOne({
+          where: { id: product.id, priceTable: { id: priceTableId } },
+          relations: ['prices'],
+        })
+        if (!existingProduct) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+        }
+      }
+
       await AppDataSource.transaction(async (transactionalEntityManager) => {
-        // Update the product
-        await transactionalEntityManager.update(Product, id, productData)
-
-        // Only handle prices if they are provided
-        if (prices && prices.length > 0) {
-          // Get existing price IDs
-          const existingPrices = await transactionalEntityManager.find(Price, {
-            where: { product: { id } },
-            select: ['id'],
+        if (existingProduct) {
+          // Update existing product
+          transactionalEntityManager.merge(Product, existingProduct, {
+            name: product.name,
+            description: product.description,
+            isHighlighted: product.isHighlighted,
+            highlightText: product.highlightText,
+            buttonText: product.buttonText,
           })
-          const existingPriceIds = existingPrices.map(price => price.id)
+          await transactionalEntityManager.save(existingProduct)
 
-          // Determine which prices to keep, update, or add
-          const pricesToKeepIds = prices.filter(price => price.id).map(price => price.id as string)
-          const pricesToDelete = existingPriceIds.filter(id => !pricesToKeepIds.includes(id))
-
-          // Delete prices that are no longer present
-          if (pricesToDelete.length > 0) {
-            await transactionalEntityManager.delete(Price, pricesToDelete)
-          }
-
-          // Update or create prices
-          for (const price of prices) {
-            if (price.id) {
-              await transactionalEntityManager.update(Price, price.id, price)
+          // Update prices
+          for (const priceData of product.prices) {
+            if (priceData.id) {
+              // Update existing price
+              await transactionalEntityManager.update(Price, priceData.id, priceData)
             } else {
-              const newPrice = transactionalEntityManager.create(Price, {
-                ...price,
-                product: { id },
+              // Create new price
+              const newPrice = priceRepository.create({
+                ...priceData,
+                product: existingProduct,
               })
               await transactionalEntityManager.save(newPrice)
             }
           }
+
+          // Remove prices that are no longer present
+          const currentPriceIds = product.prices.map(p => p.id).filter(id => id !== undefined) as string[]
+          await transactionalEntityManager.delete(Price, {
+            product: { id: existingProduct.id },
+            id: Not(In(currentPriceIds)),
+          })
         } else {
-          // If no prices are provided, remove all existing prices
-          await transactionalEntityManager.delete(Price, { product: { id } })
+          // Create new product
+          const newProduct = productRepository.create({
+            ...product,
+            priceTable,
+          })
+          await transactionalEntityManager.save(newProduct)
+
+          // Create prices
+          for (const priceData of product.prices) {
+            const newPrice = priceRepository.create({
+              ...priceData,
+              product: newProduct,
+            })
+            await transactionalEntityManager.save(newPrice)
+          }
         }
       })
 
-      // Fetch and return the updated product with its prices
-      const updatedProduct = await AppDataSource.getRepository(Product).findOne({
-        where: { id },
+      return await productRepository.findOne({
+        where: { id: existingProduct?.id || product.id },
         relations: ['prices'],
       })
-
-      return updatedProduct
     }),
 
   delete: protectedProcedure

@@ -1,28 +1,30 @@
 import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { PriceTable, PriceTableTemplate, PaymentType } from '../../entity/PriceTable'
+import { PriceTable, PriceTableTemplate } from '../../entity/PriceTable'
 import { AppDataSource } from '../../data-source'
+
+const paymentTypeSchema = z.object({
+  name: z.string(),
+  type: z.enum(['cycle', 'one-time', 'usage-based']),
+  unitName: z.string(),
+  usageBasedConfig: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().optional(),
+  }).optional().nullable(),
+})
 
 const priceTableSchema = z.object({
   name: z.string(),
-  generalSettings: z.object({
+  currencySettings: z.object({
     baseCurrency: z.string(),
     availableCurrencies: z.array(z.string()),
-    generalStyle: z.string(),
-    templateId: z.string().optional(),
-    iconStyle: z.enum(['icon', 'text']),
-    paymentType: z.enum(['cycles', 'one-time', 'usage-based']),
-    cycleOptions: z.array(z.string()).optional(),
-    usageRanges: z.array(z.object({
-      min: z.number(),
-      max: z.number(),
-      price: z.number()
-    })).optional()
-  }),
+  }).partial(),
   stripePublicKey: z.string(),
   paddlePublicKey: z.string(),
-})
+  paymentTypes: z.array(paymentTypeSchema),
+}).partial()
 
 export const priceTableRouter = router({
   create: protectedProcedure
@@ -36,25 +38,13 @@ export const priceTableRouter = router({
       const newPriceTable = AppDataSource.getRepository(PriceTable).create({
         ...input,
         user: ctx.user,
-        template: defaultTemplate
+        template: defaultTemplate,
+        currencySettings: {
+          baseCurrency: input.currencySettings?.baseCurrency || "USD",
+          availableCurrencies: input.currencySettings?.availableCurrencies || ["USD"]
+        }
       })
       await AppDataSource.getRepository(PriceTable).save(newPriceTable)
-
-      // Create default payment types
-      const paymentTypeRepository = AppDataSource.getRepository(PaymentType)
-      const defaultPaymentTypes = [
-        { name: 'one-time', type: 'one-time' as const, unitName: 'One-time' },
-        { name: 'monthly', type: 'cycle' as const, unitName: 'Month' },
-        { name: 'yearly', type: 'cycle' as const, unitName: 'Year' },
-      ]
-
-      for (const paymentType of defaultPaymentTypes) {
-        await paymentTypeRepository.save({
-          ...paymentType,
-          priceTable: newPriceTable,
-          usageBasedConfig: null,
-        })
-      }
 
       return newPriceTable
     }),
@@ -82,7 +72,7 @@ export const priceTableRouter = router({
   update: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
-      data: priceTableSchema.partial()
+      data: priceTableSchema
     }))
     .mutation(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
@@ -93,6 +83,12 @@ export const priceTableRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
       }
       priceTableRepository.merge(priceTable, input.data)
+      if (input.data.currencySettings) {
+        priceTable.currencySettings = {
+          ...priceTable.currencySettings,
+          ...input.data.currencySettings,
+        }
+      }
       await priceTableRepository.save(priceTable)
       return priceTable
     }),
