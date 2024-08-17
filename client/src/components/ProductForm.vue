@@ -102,7 +102,7 @@ watch(
 </script>
 
 <template>
-  <Form @submit="saveProduct">
+  <Form @submit.prevent="saveProduct">
     <FormField name="name" v-slot="{ field }">
       <FormItem>
         <FormLabel>Product Name</FormLabel>
