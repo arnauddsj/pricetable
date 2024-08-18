@@ -7,13 +7,13 @@ import ProductsSidebar from "@/components/sidebars/Products.vue";
 import FeaturesSidebar from "@/components/sidebars/Features.vue";
 import { useRoute } from "vue-router";
 import type { Component } from "vue";
-import { useToast } from "@/components/ui/toast/use-toast";
 import type { PriceTable } from "@/trpc/types";
 import { trpc } from "@/services/server";
 import { useQuery, useMutation } from "@tanstack/vue-query";
+import { useQueryStatusStore } from "@/stores/queryStatus";
 
 const route = useRoute();
-const { toast } = useToast();
+const queryStatusStore = useQueryStatusStore();
 
 const activeSidebar = ref<string>("Settings");
 
@@ -36,26 +36,20 @@ const { data: priceTable, refetch: refetchPriceTable, isPending } = useQuery({
 // Function to save changes to the draft
 const { mutate: saveDraftChanges } = useMutation({
   mutationFn: (data: Partial<PriceTable>) => {
+    queryStatusStore.addSavingQuery("saveDraft");
     console.log("Sending data to server:", { id: route.params.id, ...data });
     return trpc.priceTable.updateDraft.mutate({ id: route.params.id as string, ...data });
   },
   onSuccess: () => {
-    toast({
-      title: "Success",
-      description: "Draft changes saved",
-    });
     refetchPriceTable();
+    queryStatusStore.removeSavingQuery("saveDraft");
   },
   onError: (error) => {
     console.error("Error saving draft changes:", error);
     if (error instanceof Error) {
       console.error("Error details:", error.message);
     }
-    toast({
-      title: "Error",
-      description: "Failed to save draft changes",
-      variant: "destructive",
-    });
+    queryStatusStore.removeSavingQuery("saveDraft");
   },
 });
 

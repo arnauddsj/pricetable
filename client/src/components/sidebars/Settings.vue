@@ -84,32 +84,23 @@ watch(
   { immediate: true }
 );
 
-// Watch for changes in the base currency
-watch(baseCurrency, (newBaseCurrency, oldBaseCurrency) => {
-  if (!props.priceTable) return;
+// Watch for changes in the base currency and selected currencies
+watch(
+  [baseCurrency, selectedCurrencies],
+  ([newBaseCurrency, newSelectedCurrencies]) => {
+    if (!props.priceTable) return;
 
-  const currentAvailableCurrencies =
-    props.priceTable.currencySettings.availableCurrencies;
+    // Update the priceTable with the new array
+    props.priceTable.currencySettings = {
+      baseCurrency: newBaseCurrency,
+      availableCurrencies: [newBaseCurrency, ...newSelectedCurrencies],
+    };
 
-  // Remove the new base currency from available currencies
-  let updatedAvailableCurrencies = currentAvailableCurrencies.filter(
-    (currency) => currency !== newBaseCurrency
-  );
-
-  // Update the priceTable with the new array
-  props.priceTable.currencySettings = {
-    ...props.priceTable.currencySettings,
-    availableCurrencies: updatedAvailableCurrencies,
-  };
-
-  // Update selectedCurrencies
-  selectedCurrencies.value = selectedCurrencies.value.filter(
-    (currency) => currency !== newBaseCurrency
-  );
-
-  // Emit the updated settings
-  updateSettings();
-});
+    // Emit the updated settings
+    updateSettings();
+  },
+  { deep: true }
+);
 
 // Update function
 const updateSettings = () => {
@@ -183,6 +174,12 @@ const updateSettings = () => {
           <TagsInput
             :model-value="selectedCurrencies"
             class="flex gap-2 items-center rounded-lg flex-wrap"
+            @update:modelValue="
+              (newValue) => {
+                selectedCurrencies = newValue;
+                updateSettings();
+              }
+            "
           >
             <TagsInputItem
               v-for="code in selectedCurrencies"

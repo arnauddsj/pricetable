@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from "vue";
-import { useIsFetching, useIsMutating, useMutation } from "@tanstack/vue-query";
+import { ref, defineAsyncComponent } from "vue";
+import { useMutation } from "@tanstack/vue-query";
 import { Button } from "@/components/ui/button";
 import { usePriceTableStore } from "@/stores/priceTable";
+import { useQueryStatusStore } from "@/stores/queryStatus";
 import { useToast } from "@/components/ui/toast/use-toast";
 import { trpc } from "@/services/server";
 
@@ -10,13 +11,7 @@ const { toast } = useToast();
 const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
 const { setActiveSidebar, activeSidebar } = usePriceTableStore();
-
-const isFetching = useIsFetching();
-const isMutating = useIsMutating();
-
-const isSaving = computed(() => isFetching.value > 0 || isMutating.value > 0);
-
-const priceTableId = ref("your-price-table-id"); // Replace with actual ID or prop
+const { isSaving, isSaved } = useQueryStatusStore();
 
 const publishMutation = useMutation({
   mutationFn: () => trpc.priceTable.publish.mutate({ id: priceTableId.value }),
@@ -67,7 +62,8 @@ const sidebarOptions = ["Settings", "Products", "Features"];
         </button>
       </div>
       <div class="flex items-center gap-4">
-        <span v-if="isSaving" class="text-sm text-gray-500">Saving...</span>
+        <span v-if="isSaving" class="text-sm text-gray-500 mr-2">Saving...</span>
+        <span v-else-if="isSaved" class="text-sm text-green-500 mr-2">Saved</span>
         <Button
           @click="handlePublish"
           :disabled="isSaving || publishMutation.isPending.value"
