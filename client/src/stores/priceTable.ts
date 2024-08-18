@@ -108,7 +108,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
           paddleProductId: product.paddleProductId || null,
           prices: product.prices.map((price: Price) => ({
             id: price.id,
-            unitAmount: price.unitAmount,
+            unitAmount: Number(price.unitAmount),
             currency: price.currency,
             paymentTypeName: price.paymentTypeName,
             checkoutUrl: price.checkoutUrl || '',
@@ -142,20 +142,42 @@ export const usePriceTableStore = defineStore("priceTable", () => {
       // Update the local products with the saved data
       priceTable.products = updatedProducts
 
+      // Prepare the data for price table update
+      const priceTableUpdateData = {
+        name: priceTable.name,
+        currencySettings: priceTable.currencySettings,
+        stripePublicKey: priceTable.stripePublicKey,
+        paddlePublicKey: priceTable.paddlePublicKey,
+        paymentTypes: priceTable.paymentTypes,
+        products: updatedProducts.map(product => ({
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          isHighlighted: product.isHighlighted,
+          highlightText: product.highlightText,
+          buttonText: product.buttonText,
+          buttonLink: product.buttonLink,
+          stripeProductId: product.stripeProductId,
+          paddleProductId: product.paddleProductId,
+          prices: product.prices.map(price => ({
+            id: price.id,
+            unitAmount: Number(price.unitAmount),
+            currency: price.currency,
+            paymentTypeName: price.paymentTypeName,
+            checkoutUrl: price.checkoutUrl,
+          })),
+        })),
+      }
+
       // Update price table
       const updatedPriceTable = await trpc.priceTable.update.mutate({
         id: priceTable.id,
-        data: {
-          name: priceTable.name,
-          currencySettings: priceTable.currencySettings,
-          stripePublicKey: priceTable.stripePublicKey,
-          paddlePublicKey: priceTable.paddlePublicKey,
-          paymentTypes: priceTable.paymentTypes,
-          products: updatedProducts,
-        },
+        data: priceTableUpdateData,
       })
 
       console.log("Updated price table:", JSON.stringify(updatedPriceTable, null, 2))
+
+      return updatedPriceTable
 
     } catch (error) {
       console.error("Error updating price table:", error)

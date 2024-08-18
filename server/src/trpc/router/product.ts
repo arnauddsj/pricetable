@@ -43,7 +43,7 @@ export const productRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { priceTableId, ...productData } = input
+      const { priceTableId, prices, ...productData } = input
 
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
       const priceTable = await priceTableRepository.findOne({
@@ -55,14 +55,35 @@ export const productRouter = router({
       }
 
       const productRepository = AppDataSource.getRepository(Product)
+      const priceRepository = AppDataSource.getRepository(Price)
+
       const product = productRepository.create({
         ...productData,
         priceTable,
       })
 
       try {
-        await productRepository.save(product)
-        return product
+        await AppDataSource.transaction(async (transactionalEntityManager) => {
+          await transactionalEntityManager.save(product)
+
+          if (prices && prices.length > 0) {
+            const newPrices = prices.map(priceData =>
+              priceRepository.create({
+                ...priceData,
+                product: product,
+              })
+            )
+            await transactionalEntityManager.save(newPrices)
+          }
+        })
+
+        // Fetch the product with its prices
+        const savedProduct = await productRepository.findOne({
+          where: { id: product.id },
+          relations: ['prices'],
+        })
+
+        return savedProduct
       } catch (error) {
         console.error('Error creating product:', error)
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create product' })
