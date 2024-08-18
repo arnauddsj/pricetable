@@ -94,18 +94,18 @@ const renamePriceTableMutation = useMutation({
         >
           <div class="flex justify-between items-center">
             <RouterLink
-              :to="{ name: 'editPriceTable', params: { id: table.id } }"
+              :to="{ name: 'editPriceTable', params: { id: table.draft.id } }"
               class="text-lg font-semibold text-indigo-500 hover:text-indigo-800"
             >
               <span
                 class="text-lg font-semibold text-indigo-500 hover:text-indigo-800"
-                v-if="table.name.length < 1"
+                v-if="table.draft.name.length < 1"
                 >Untitled</span
               >
               <span
                 class="text-lg font-semibold text-indigo-500 hover:text-indigo-800"
                 v-else
-                >{{ table.name }}</span
+                >{{ table.draft.name }}</span
               >
             </RouterLink>
             <DropdownMenu>
@@ -119,7 +119,10 @@ const renamePriceTableMutation = useMutation({
               <DropdownMenuContent>
                 <DropdownMenuItem
                   @click="
-                    renamePriceTableMutation.mutate({ id: table.id, newName: 'New Name' })
+                    renamePriceTableMutation.mutate({
+                      id: table.draft.id,
+                      newName: 'New Name',
+                    })
                   "
                 >
                   Rename

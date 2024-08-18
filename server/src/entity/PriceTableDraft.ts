@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany, UpdateDateColumn } from "typeorm"
 import { PriceTable } from "./PriceTable"
 import { Product } from "./Product"
+import { PriceTableTemplate } from "./PriceTableTemplate"
 
 @Entity()
 export class PriceTableDraft {
@@ -10,6 +11,10 @@ export class PriceTableDraft {
   @OneToOne(() => PriceTable, priceTable => priceTable.draft)
   @JoinColumn()
   priceTable: PriceTable
+
+  @OneToOne(() => PriceTableTemplate)
+  @JoinColumn()
+  template: PriceTableTemplate
 
   @Column()
   name: string

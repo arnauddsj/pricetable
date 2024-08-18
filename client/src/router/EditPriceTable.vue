@@ -28,7 +28,7 @@ const currentSidebarComponent = computed(() => sidebarComponents[activeSidebar.v
 // Fetch the draft price table
 const { data: priceTable, refetch: refetchPriceTable, isPending } = useQuery({
   queryKey: ["priceTable", "getDraft", route.params.id],
-  queryFn: () => trpc.priceTable.getDraft.query({ id: route.params.id as string }),
+  queryFn: () => trpc.priceTable.getDraftById.query({ id: route.params.id as string }),
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
 });
@@ -38,7 +38,7 @@ const { mutate: saveDraftChanges } = useMutation({
   mutationFn: (data: Partial<PriceTable>) => {
     queryStatusStore.addSavingQuery("saveDraft");
     console.log("Sending data to server:", { id: route.params.id, ...data });
-    return trpc.priceTable.updateDraft.mutate({ id: route.params.id as string, ...data });
+    return trpc.priceTable.update.mutate({ id: route.params.id as string, ...data });
   },
   onSuccess: () => {
     refetchPriceTable();

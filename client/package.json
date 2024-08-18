@@ -18,6 +18,7 @@
     "@vueuse/core": "^10.11.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "handlebars": "^4.7.8",
     "js-cookie": "^3.0.5",
     "lucide-vue-next": "^0.427.0",
     "pinia": "^2.2.0",

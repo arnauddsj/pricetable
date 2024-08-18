@@ -77,7 +77,11 @@ async function createDefaultTemplate() {
   const defaultTemplate = loadTemplate('0.2')
   const existingTemplate = await templateRepo.findOne({ where: { version: defaultTemplate.databaseFields.version } })
   if (!existingTemplate) {
-    const newTemplate = templateRepo.create(defaultTemplate.databaseFields)
+    const newTemplate = templateRepo.create({
+      ...defaultTemplate.databaseFields,
+      user: null,  // Explicitly set user to null
+      isPublic: true  // Ensure it's marked as public
+    })
     await templateRepo.save(newTemplate)
     console.log('Default template created')
   }

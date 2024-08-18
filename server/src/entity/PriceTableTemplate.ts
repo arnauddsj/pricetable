@@ -19,7 +19,7 @@ export class PriceTableTemplate {
   @Column({ default: false })
   isPremium: boolean
 
-  @Column({ unique: true })
+  @Column()
   version: string
 
   @Column({ nullable: true })

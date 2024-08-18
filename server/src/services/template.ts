@@ -12,6 +12,8 @@ export function loadTemplate(version: string): any {
 }
 
 export function renderTemplate(template: string, data: any): string {
+  console.log('template', template)
+  console.log('data', data)
   const compiledTemplate = Handlebars.compile(template)
   return compiledTemplate(data)
 }

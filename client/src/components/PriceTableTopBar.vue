@@ -5,11 +5,19 @@ import { Button } from "@/components/ui/button";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { useToast } from "@/components/ui/toast/use-toast";
 import { trpc } from "@/services/server";
+import { useRoute } from "vue-router";
+const route = useRoute();
 
 const { toast } = useToast();
 const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
 const { setActiveSidebar, activeSidebar } = usePriceTableStore();
+
+// const priceTableId = ref<string | null>(null);
+
+// watch(route, () => {
+//   priceTableId.value = route.params.id as string;
+// });
 
 // Use useIsFetching to get the global fetching state
 const isFetching = useIsFetching();
@@ -35,7 +43,10 @@ watch(isFetching, (newValue) => {
 });
 
 const publishMutation = useMutation({
-  mutationFn: () => trpc.priceTable.publish.mutate({ id: priceTableId.value }),
+  mutationFn: () => {
+    if (!route.params.id) throw new Error("Price table ID is missing");
+    return trpc.priceTable.publish.mutate({ id: route.params.id as string });
+  },
   onSuccess: () => {
     toast({
       title: "Success",

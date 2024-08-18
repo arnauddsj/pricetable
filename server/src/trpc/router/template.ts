@@ -79,6 +79,7 @@ export const templateRouter = router({
       }
 
       const renderedHtml = renderTemplate(template.htmlTemplate, templateData)
+      console.log('renderedHtml', renderedHtml)
       const customCSS = generateCSS({
         ...template.databaseFields.customCSS,
         ...priceTable.template.customCSS

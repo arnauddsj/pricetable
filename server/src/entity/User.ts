@@ -26,6 +26,6 @@ export class User {
   @OneToMany(() => PriceTable, priceTable => priceTable.user)
   priceTables: PriceTable[]
 
-  @OneToMany(() => PriceTableTemplate, template => template.user)
+  @OneToMany(() => PriceTableTemplate, template => template.user, { nullable: true })
   templates: PriceTableTemplate[]
 }

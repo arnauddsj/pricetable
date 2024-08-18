@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, UpdateDateColumn, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, UpdateDateColumn, CreateDateColumn, JoinColumn } from "typeorm"
 import { User } from "./User"
 import { PriceTableTemplate } from "./PriceTableTemplate"
 import { Product } from "./Product"
@@ -36,7 +36,8 @@ export class PriceTable {
     availableCurrencies: string[]
   }
 
-  @ManyToOne(() => PriceTableTemplate)
+  @OneToOne(() => PriceTableTemplate)
+  @JoinColumn()
   template: PriceTableTemplate
 
   @OneToMany(() => Product, product => product.priceTable, { cascade: true })
