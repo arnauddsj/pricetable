@@ -38,42 +38,35 @@ export const productRouter = router({
         isHighlighted: z.boolean(),
         highlightText: z.string().optional(),
         buttonText: z.string(),
-        stripeProductId: z.string().optional(),
-        paddleProductId: z.string().optional(),
-        prices: z.array(priceSchema),
+        buttonLink: z.string().optional(),
+        prices: z.array(priceSchema).optional(),
       })
     )
-    .mutation(async ({ input }) => {
-      const productRepository = AppDataSource.getRepository(Product)
-      const priceRepository = AppDataSource.getRepository(Price)
+    .mutation(async ({ input, ctx }) => {
+      const { priceTableId, ...productData } = input
 
-      const product = productRepository.create({
-        name: input.name,
-        description: input.description,
-        isHighlighted: input.isHighlighted,
-        highlightText: input.highlightText,
-        buttonText: input.buttonText,
-        stripeProductId: input.stripeProductId,
-        paddleProductId: input.paddleProductId,
-        priceTable: { id: input.priceTableId },
+      const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const priceTable = await priceTableRepository.findOne({
+        where: { id: priceTableId, user: { id: ctx.user.id } },
       })
 
-      await productRepository.save(product)
+      if (!priceTable) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
+      }
 
-      const prices = await Promise.all(
-        input.prices.map(async (priceInput) => {
-          const price = priceRepository.create({
-            unitAmount: priceInput.unitAmount,
-            currency: priceInput.currency,
-            paymentTypeName: priceInput.paymentTypeName,
-            checkoutUrl: priceInput.checkoutUrl,
-            product: product
-          })
-          return await priceRepository.save(price)
-        })
-      )
+      const productRepository = AppDataSource.getRepository(Product)
+      const product = productRepository.create({
+        ...productData,
+        priceTable,
+      })
 
-      return { ...product, prices }
+      try {
+        await productRepository.save(product)
+        return product
+      } catch (error) {
+        console.error('Error creating product:', error)
+        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create product' })
+      }
     }),
 
   update: protectedProcedure

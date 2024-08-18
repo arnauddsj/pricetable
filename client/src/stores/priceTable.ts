@@ -1,7 +1,7 @@
 import { defineStore } from "pinia"
 import { ref, reactive, computed } from "vue"
 import { trpc } from "@/services/server"
-import type { PriceTable, Product, FeatureGroup } from "@/trpc/types"
+import type { PriceTable, Product, FeatureGroup, Price } from "@/trpc/types"
 import type { PaymentTypeData } from '@/types'
 
 export const usePriceTableStore = defineStore("priceTable", () => {
@@ -95,7 +95,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
       console.log("Products before save:", JSON.stringify(priceTable.products, null, 2))
 
       // Save all products, both new and existing
-      const updatedProducts = await Promise.all(priceTable.products.map(async (product) => {
+      const updatedProducts = await Promise.all(priceTable.products.map(async (product: Product) => {
         const cleanedProduct = {
           id: product.id,
           name: product.name,
@@ -106,7 +106,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
           buttonLink: product.buttonLink || '',
           stripeProductId: product.stripeProductId || null,
           paddleProductId: product.paddleProductId || null,
-          prices: product.prices.map(price => ({
+          prices: product.prices.map((price: Price) => ({
             id: price.id,
             unitAmount: price.unitAmount,
             currency: price.currency,
@@ -118,6 +118,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
         console.log("Cleaned product:", JSON.stringify(cleanedProduct, null, 2))
 
         if (product.isNew) {
+          console.log('Creating new product', product)
           const { isNew, ...productData } = cleanedProduct
           const createdProduct = await trpc.product.create.mutate({
             priceTableId: priceTable.id,
@@ -126,7 +127,7 @@ export const usePriceTableStore = defineStore("priceTable", () => {
           console.log("Created product:", JSON.stringify(createdProduct, null, 2))
           return { ...createdProduct, isNew: false }
         } else {
-          // Update existing product
+          console.log('Updating existing product', product)
           const updatedProduct = await trpc.product.update.mutate({
             priceTableId: priceTable.id,
             product: cleanedProduct,
@@ -145,11 +146,11 @@ export const usePriceTableStore = defineStore("priceTable", () => {
       const updatedPriceTable = await trpc.priceTable.update.mutate({
         id: priceTable.id,
         data: {
-          ...priceTable,
-          currencySettings: {
-            ...priceTable.currencySettings,
-            baseCurrency: priceTable.currencySettings.baseCurrency,
-          },
+          name: priceTable.name,
+          currencySettings: priceTable.currencySettings,
+          stripePublicKey: priceTable.stripePublicKey,
+          paddlePublicKey: priceTable.paddlePublicKey,
+          paymentTypes: priceTable.paymentTypes,
           products: updatedProducts,
         },
       })
@@ -158,6 +159,10 @@ export const usePriceTableStore = defineStore("priceTable", () => {
 
     } catch (error) {
       console.error("Error updating price table:", error)
+      if (error instanceof Error) {
+        console.error("Error message:", error.message)
+        console.error("Error stack:", error.stack)
+      }
       throw error
     }
   }
