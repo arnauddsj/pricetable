@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, defineAsyncComponent } from "vue";
-import { useMutation } from "@tanstack/vue-query";
+import { ref, defineAsyncComponent, watch } from "vue";
+import { useMutation, useIsFetching } from "@tanstack/vue-query";
 import { Button } from "@/components/ui/button";
 import { usePriceTableStore } from "@/stores/priceTable";
-import { useQueryStatusStore } from "@/stores/queryStatus";
 import { useToast } from "@/components/ui/toast/use-toast";
 import { trpc } from "@/services/server";
 
@@ -11,7 +10,29 @@ const { toast } = useToast();
 const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
 const { setActiveSidebar, activeSidebar } = usePriceTableStore();
-const { isSaving, isSaved } = useQueryStatusStore();
+
+// Use useIsFetching to get the global fetching state
+const isFetching = useIsFetching();
+
+// Add new refs for debounced state
+const isSaving = ref(false);
+const saveStateDebounceTimeout = ref<number | null>(null);
+
+// Watch for changes in isFetching
+watch(isFetching, (newValue) => {
+  if (newValue) {
+    // If fetching starts, set isSaving to true immediately
+    isSaving.value = true;
+  } else {
+    // If fetching stops, debounce the change to "Saved" state
+    if (saveStateDebounceTimeout.value) {
+      clearTimeout(saveStateDebounceTimeout.value);
+    }
+    saveStateDebounceTimeout.value = setTimeout(() => {
+      isSaving.value = false;
+    }, 1000); // 1 second debounce
+  }
+});
 
 const publishMutation = useMutation({
   mutationFn: () => trpc.priceTable.publish.mutate({ id: priceTableId.value }),
@@ -63,12 +84,12 @@ const sidebarOptions = ["Settings", "Products", "Features"];
       </div>
       <div class="flex items-center gap-4">
         <span v-if="isSaving" class="text-sm text-gray-500 mr-2">Saving...</span>
-        <span v-else-if="isSaved" class="text-sm text-green-500 mr-2">Saved</span>
+        <span v-else class="text-sm text-green-500 mr-2">Saved</span>
         <Button
           @click="handlePublish"
-          :disabled="isSaving || publishMutation.isPending.value"
+          :disabled="isFetching || publishMutation.isPending"
         >
-          {{ publishMutation.isPending.value ? "Publishing..." : "Publish" }}
+          {{ publishMutation.isPending ? "Publishing..." : "Publish" }}
         </Button>
       </div>
     </div>
