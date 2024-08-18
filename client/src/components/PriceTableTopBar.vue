@@ -1,38 +1,50 @@
 <script setup lang="ts">
-import { defineAsyncComponent } from "vue";
+import { ref, computed, defineAsyncComponent } from "vue";
+import { useIsFetching, useIsMutating, useMutation } from "@tanstack/vue-query";
 import { Button } from "@/components/ui/button";
 import { usePriceTableStore } from "@/stores/priceTable";
 import { useToast } from "@/components/ui/toast/use-toast";
+import { trpc } from "@/services/server";
 
 const { toast } = useToast();
 const logo = defineAsyncComponent(() => import("../assets/logo.svg"));
 
-const { handleSave, setActiveSidebar, activeSidebar } = usePriceTableStore();
+const { setActiveSidebar, activeSidebar } = usePriceTableStore();
 
-const handleSaveButton = async () => {
-  try {
-    await handleSave();
+const isFetching = useIsFetching();
+const isMutating = useIsMutating();
+
+const isSaving = computed(() => isFetching.value > 0 || isMutating.value > 0);
+
+const priceTableId = ref("your-price-table-id"); // Replace with actual ID or prop
+
+const publishMutation = useMutation({
+  mutationFn: () => trpc.priceTable.publish.mutate({ id: priceTableId.value }),
+  onSuccess: () => {
     toast({
       title: "Success",
-      description: "Price table saved successfully.",
+      description: "Price table published successfully.",
     });
-  } catch (error) {
-    console.error("Error saving price table:", error);
+  },
+  onError: (error) => {
+    console.error("Error publishing price table:", error);
     toast({
       title: "Error",
-      description:
-        error instanceof Error
-          ? error.message
-          : "Failed to save price table. Please try again.",
+      description: "Failed to publish price table. Please try again.",
+      variant: "destructive",
     });
-  }
+  },
+});
+
+const handlePublish = () => {
+  publishMutation.mutate();
 };
 
 const sidebarOptions = ["Settings", "Products", "Features"];
 </script>
 
 <template>
-  <nav class="w-full flex flex px-8 gap-5">
+  <nav class="w-full flex px-8 gap-5">
     <div class="flex items-center">
       <a class="logo" href="/">
         <component :is="logo" />
@@ -54,12 +66,15 @@ const sidebarOptions = ["Settings", "Products", "Features"];
           {{ option }}
         </button>
       </div>
-      <button
-        @click="handleSaveButton"
-        class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-      >
-        Save
-      </button>
+      <div class="flex items-center gap-4">
+        <span v-if="isSaving" class="text-sm text-gray-500">Saving...</span>
+        <Button
+          @click="handlePublish"
+          :disabled="isSaving || publishMutation.isPending.value"
+        >
+          {{ publishMutation.isPending.value ? "Publishing..." : "Publish" }}
+        </Button>
+      </div>
     </div>
   </nav>
 </template>

@@ -73,4 +73,10 @@ export class PriceTableTemplate {
     baseCurrency: string
     availableCurrencies: string[]
   }
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt: Date
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date
 }

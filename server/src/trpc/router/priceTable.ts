@@ -2,10 +2,11 @@ import { router, protectedProcedure, publicProcedure } from '../index'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { PriceTable } from '../../entity/PriceTable'
-import { PriceTableTemplate } from '../../entity/PriceTableTemplate'
+import { PriceTableDraft } from '../../entity/PriceTableDraft'
+import { AppDataSource } from '../../data-source'
 import { Product } from '../../entity/Product'
 import { Price } from '../../entity/Price'
-import { AppDataSource } from '../../data-source'
+import { FeatureGroup } from '../../entity/FeatureGroup'
 
 const paymentTypeSchema = z.object({
   name: z.string(),
@@ -33,33 +34,146 @@ export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
-      const templateRepository = AppDataSource.getRepository(PriceTableTemplate)
-      const defaultTemplate = await templateRepository.findOne({
-        where: { isPublic: true },
-        order: { version: 'DESC' }
+      const priceTableRepo = AppDataSource.getRepository(PriceTable)
+      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
+
+      // Start a transaction
+      return await AppDataSource.transaction(async (transactionalEntityManager) => {
+        // Create the live PriceTable
+        const livePriceTable = priceTableRepo.create({
+          ...input,
+          user: { id: ctx.user.id },
+          isPublished: false,
+        })
+        await transactionalEntityManager.save(livePriceTable)
+
+        // Create the draft PriceTable
+        const draftPriceTable = priceTableDraftRepo.create({
+          ...input,
+          priceTable: livePriceTable,
+        })
+        await transactionalEntityManager.save(draftPriceTable)
+
+        // Update the live PriceTable with the draft reference
+        livePriceTable.draft = draftPriceTable
+        await transactionalEntityManager.save(livePriceTable)
+
+        return { id: livePriceTable.id }
       })
-      if (!defaultTemplate) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Default template not found' })
+    }),
+
+  getDraft: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ input, ctx }) => {
+      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
+      const draft = await priceTableDraftRepo.findOne({
+        where: { priceTable: { id: input.id, user: { id: ctx.user.id } } },
+        relations: ['priceTable'],
+      })
+
+      if (!draft) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Draft price table not found',
+        })
       }
 
-      const newPriceTable = AppDataSource.getRepository(PriceTable).create({
-        ...input,
-        user: ctx.user,
-        template: defaultTemplate,
-        currencySettings: {
-          baseCurrency: input.currencySettings?.baseCurrency || "USD",
-          availableCurrencies: input.currencySettings?.availableCurrencies || ["USD"]
-        }
-      })
-      await AppDataSource.getRepository(PriceTable).save(newPriceTable)
+      return draft
+    }),
 
-      return newPriceTable
+  updateDraft: protectedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      name: z.string().optional(),
+      paddlePublicKey: z.string().optional(),
+      stripePublicKey: z.string().optional(),
+      currencySettings: z.object({
+        baseCurrency: z.string(),
+        availableCurrencies: z.array(z.string()),
+      }).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      console.log("Received update data:", input)
+
+      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
+
+      // Find the existing draft
+      const existingDraft = await priceTableDraftRepo.findOne({
+        where: { priceTable: { id: input.id, user: { id: ctx.user.id } } },
+        relations: ['priceTable'],
+      })
+
+      if (!existingDraft) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Draft price table not found',
+        })
+      }
+
+      // Update the existing draft
+      Object.assign(existingDraft, {
+        name: input.name ?? existingDraft.name,
+        paddlePublicKey: input.paddlePublicKey ?? existingDraft.paddlePublicKey,
+        stripePublicKey: input.stripePublicKey ?? existingDraft.stripePublicKey,
+        currencySettings: input.currencySettings ? {
+          ...existingDraft.currencySettings,
+          ...input.currencySettings,
+        } : existingDraft.currencySettings,
+      })
+
+      // Save the updated draft
+      const updatedDraft = await priceTableDraftRepo.save(existingDraft)
+
+      console.log("Updated draft:", updatedDraft)
+
+      return updatedDraft
+    }),
+
+  publish: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      const priceTableRepo = AppDataSource.getRepository(PriceTable)
+      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
+
+      const draft = await priceTableDraftRepo.findOne({
+        where: { priceTable: { id: input.id, user: { id: ctx.user.id } } },
+        relations: ['priceTable'],
+      })
+
+      if (!draft) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Draft price table not found',
+        })
+      }
+
+      // Start a transaction
+      await AppDataSource.transaction(async (transactionalEntityManager) => {
+        // Update the live version with the draft data
+        Object.assign(draft.priceTable, draft)
+        draft.priceTable.isPublished = true
+        draft.priceTable.publishedAt = new Date()
+        await transactionalEntityManager.save(draft.priceTable)
+
+        // Optionally, you can clear some draft-specific data here if needed
+        // draft.someFieldThatShouldBeClearedAfterPublishing = null;
+        await transactionalEntityManager.save(draft)
+      })
+
+      return draft.priceTable
     }),
 
   getAll: protectedProcedure
     .query(async ({ ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
-      return await priceTableRepository.find({ where: { user: { id: ctx.user.id } } })
+      const priceTables = await priceTableRepository.find({ where: { user: { id: ctx.user.id } } })
+      // return only name, id, and isPublished in the order of the latest updatedAt date
+      return priceTables.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).map((priceTable) => ({
+        id: priceTable.id,
+        name: priceTable.name,
+        isPublished: priceTable.isPublished,
+        updatedAt: priceTable.updatedAt,
+      }))
     }),
 
   getById: protectedProcedure
@@ -164,13 +278,54 @@ export const priceTableRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const productRepository = AppDataSource.getRepository(Product)
+      const priceRepository = AppDataSource.getRepository(Price)
+      const featureGroupRepository = AppDataSource.getRepository(FeatureGroup)
+      const priceTableDraftRepository = AppDataSource.getRepository(PriceTableDraft)
+
       const priceTable = await priceTableRepository.findOne({
-        where: { id: input.id, user: { id: ctx.user.id } }
+        where: { id: input.id, user: { id: ctx.user.id } },
+        relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'draft']
       })
+
       if (!priceTable) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
       }
-      await priceTableRepository.remove(priceTable)
+
+      await AppDataSource.transaction(async (transactionalEntityManager) => {
+        // Remove prices
+        if (priceTable.products) {
+          for (const product of priceTable.products) {
+            if (product.prices) {
+              await transactionalEntityManager.remove(product.prices)
+            }
+          }
+        }
+
+        // Remove products
+        if (priceTable.products) {
+          await transactionalEntityManager.remove(priceTable.products)
+        }
+
+        // Remove features and feature groups
+        if (priceTable.featureGroups) {
+          for (const featureGroup of priceTable.featureGroups) {
+            if (featureGroup.features) {
+              await transactionalEntityManager.remove(featureGroup.features)
+            }
+          }
+          await transactionalEntityManager.remove(priceTable.featureGroups)
+        }
+
+        // Remove draft
+        if (priceTable.draft) {
+          await transactionalEntityManager.remove(priceTable.draft)
+        }
+
+        // Remove the price table itself
+        await transactionalEntityManager.remove(priceTable)
+      })
+
       return { success: true }
     }),
 })

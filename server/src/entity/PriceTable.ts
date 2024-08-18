@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, UpdateDateColumn, CreateDateColumn } from "typeorm"
 import { User } from "./User"
 import { PriceTableTemplate } from "./PriceTableTemplate"
 import { Product } from "./Product"
 import { FeatureGroup } from "./FeatureGroup"
+import { PriceTableDraft } from "./PriceTableDraft"
 
 @Entity()
 export class PriceTable {
@@ -38,10 +39,10 @@ export class PriceTable {
   @ManyToOne(() => PriceTableTemplate)
   template: PriceTableTemplate
 
-  @OneToMany(() => Product, product => product.priceTable)
+  @OneToMany(() => Product, product => product.priceTable, { cascade: true })
   products: Product[]
 
-  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable)
+  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable, { cascade: true })
   featureGroups: FeatureGroup[]
 
   @Column("jsonb", {
@@ -63,4 +64,19 @@ export class PriceTable {
       step?: number
     } | null
   }[]
+
+  @Column({ default: false })
+  isPublished: boolean
+
+  @Column({ type: 'timestamp', nullable: true })
+  publishedAt: Date | null
+
+  @OneToOne(() => PriceTableDraft, draft => draft.priceTable, { cascade: true })
+  draft: PriceTableDraft
+
+  @CreateDateColumn()
+  createdAt: Date
+
+  @UpdateDateColumn()
+  updatedAt: Date
 }

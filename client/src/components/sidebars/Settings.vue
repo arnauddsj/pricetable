@@ -1,10 +1,27 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
-import { usePriceTableStore } from "@/stores/priceTable";
+import { ref, watch, computed } from "vue";
+import type { PriceTable } from "@/trpc/types";
 import { Input } from "@/components/ui/input";
-import Multiselect from "vue-multiselect";
-import { useToast } from "@/components/ui/toast/use-toast";
+import {
+  ComboboxAnchor,
+  ComboboxInput,
+  ComboboxPortal,
+  ComboboxRoot,
+  ComboboxTrigger,
+} from "radix-vue";
+import {
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  TagsInput,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from "@/components/ui/tags-input";
 import {
   Select,
   SelectContent,
@@ -12,56 +29,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash } from "lucide-vue-next";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import AddPaymentTypeForm from "@/components/AddPaymentTypeForm.vue";
-import type { PaymentTypeData } from "@/types";
-
-// Add these imports
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { X, ChevronDown } from "lucide-vue-next";
 
 const props = defineProps<{
-  priceTable: any;
+  priceTable: PriceTable | null;
 }>();
 
-const { toast } = useToast();
+const emit = defineEmits<{
+  (e: "update:settings", settings: Partial<PriceTable>): void;
+}>();
 
-const priceTableStore = usePriceTableStore();
-const { updatePaymentTypes, removePaymentTypeAndPrices } = priceTableStore;
+// Input refs
+const name = ref("");
+const paddlePublicKey = ref("");
+const stripePublicKey = ref("");
+const baseCurrency = ref("");
 
-const name = computed({
-  get: () => props.priceTable.name,
-  set: (value) => (props.priceTable.name = value),
-});
-
-const paddlePublicKey = computed({
-  get: () => props.priceTable.paddlePublicKey,
-  set: (value) => (props.priceTable.paddlePublicKey = value),
-});
-
-const stripePublicKey = computed({
-  get: () => props.priceTable.stripePublicKey,
-  set: (value) => (props.priceTable.stripePublicKey = value),
-});
-
+// Available currencies (you might want to fetch this from an API)
 const availableCurrencies = ref([
   { code: "USD", name: "US Dollar" },
   { code: "EUR", name: "Euro" },
@@ -69,122 +53,108 @@ const availableCurrencies = ref([
   { code: "JPY", name: "Japanese Yen" },
 ]);
 
-const baseCurrency = computed({
-  get: () => props.priceTable.currencySettings.baseCurrency,
-  set: (value) => (props.priceTable.currencySettings.baseCurrency = value),
-});
+const selectedCurrencies = ref<string[]>([]);
+const openCurrencySelect = ref(false);
+const currencySearchTerm = ref("");
 
 const filteredAvailableCurrencies = computed(() =>
-  availableCurrencies.value.filter((currency) => currency.code !== baseCurrency.value)
+  availableCurrencies.value.filter(
+    (currency) =>
+      currency.code !== baseCurrency.value &&
+      !selectedCurrencies.value.includes(currency.code) &&
+      (currency.name.toLowerCase().includes(currencySearchTerm.value.toLowerCase()) ||
+        currency.code.toLowerCase().includes(currencySearchTerm.value.toLowerCase()))
+  )
 );
 
-const selectedCurrencies = computed({
-  get: () => {
-    const currencies = props.priceTable.currencySettings.availableCurrencies || [];
-    return availableCurrencies.value.filter(
-      (currency) =>
-        currencies.includes(currency.code) && currency.code !== baseCurrency.value
-    );
+// Watch for changes in the priceTable prop
+watch(
+  () => props.priceTable,
+  (newPriceTable) => {
+    if (newPriceTable) {
+      name.value = newPriceTable.name;
+      paddlePublicKey.value = newPriceTable.paddlePublicKey || "";
+      stripePublicKey.value = newPriceTable.stripePublicKey || "";
+      baseCurrency.value = newPriceTable.currencySettings.baseCurrency;
+      selectedCurrencies.value = newPriceTable.currencySettings.availableCurrencies.filter(
+        (code) => code !== baseCurrency.value
+      );
+    }
   },
-  set: (value) => {
-    const newSelectedCurrencies = value.map((currency) => currency.code);
-    props.priceTable.currencySettings.availableCurrencies = newSelectedCurrencies;
-  },
-});
+  { immediate: true }
+);
 
 // Watch for changes in the base currency
-watch(baseCurrency, (newBaseCurrency) => {
-  const availableCurrencies = props.priceTable.currencySettings.availableCurrencies || [];
+watch(baseCurrency, (newBaseCurrency, oldBaseCurrency) => {
+  if (!props.priceTable) return;
 
-  // If the new base currency was in the available currencies, remove it
-  if (availableCurrencies.includes(newBaseCurrency)) {
-    props.priceTable.currencySettings.availableCurrencies = availableCurrencies.filter(
-      (code) => code !== newBaseCurrency
-    );
-  }
+  const currentAvailableCurrencies =
+    props.priceTable.currencySettings.availableCurrencies;
+
+  // Remove the new base currency from available currencies
+  let updatedAvailableCurrencies = currentAvailableCurrencies.filter(
+    (currency) => currency !== newBaseCurrency
+  );
+
+  // Update the priceTable with the new array
+  props.priceTable.currencySettings = {
+    ...props.priceTable.currencySettings,
+    availableCurrencies: updatedAvailableCurrencies,
+  };
+
+  // Update selectedCurrencies
+  selectedCurrencies.value = selectedCurrencies.value.filter(
+    (currency) => currency !== newBaseCurrency
+  );
+
+  // Emit the updated settings
+  updateSettings();
 });
 
-// Use the priceTable prop instead of accessing it from the store
-const paymentTypes = computed({
-  get: () => props.priceTable.paymentTypes,
-  set: (value) => {
-    updatePaymentTypes(value);
-  },
-});
+// Update function
+const updateSettings = () => {
+  if (!props.priceTable) return;
 
-const isAlertDialogOpen = ref(false);
-const paymentTypeToRemove = ref<string | null>(null);
-
-const removePaymentType = (paymentTypeName: string) => {
-  paymentTypeToRemove.value = paymentTypeName;
-  isAlertDialogOpen.value = true;
+  const updatedSettings: Partial<PriceTable> = {
+    name: name.value,
+    paddlePublicKey: paddlePublicKey.value,
+    stripePublicKey: stripePublicKey.value,
+    currencySettings: {
+      baseCurrency: baseCurrency.value,
+      availableCurrencies: selectedCurrencies.value,
+    },
+  };
+  console.log("Emitting updated settings:", updatedSettings);
+  emit("update:settings", updatedSettings);
 };
-
-const confirmRemovePaymentType = () => {
-  if (paymentTypeToRemove.value) {
-    removePaymentTypeAndPrices(paymentTypeToRemove.value);
-    isAlertDialogOpen.value = false;
-    paymentTypeToRemove.value = null;
-  }
-};
-
-const isDialogOpen = ref(false);
-const editingPaymentType = ref(null);
-
-const editPaymentType = (index: number) => {
-  editingPaymentType.value = { ...paymentTypes.value[index] };
-  isDialogOpen.value = true;
-};
-
-const savePaymentType = (paymentType: PaymentTypeData) => {
-  let updatedPaymentTypes;
-  if (editingPaymentType.value) {
-    updatedPaymentTypes = paymentTypes.value.map((pt) =>
-      pt.name === editingPaymentType.value?.name ? paymentType : pt
-    );
-  } else {
-    updatedPaymentTypes = [...paymentTypes.value, paymentType];
-  }
-  updatePaymentTypes(updatedPaymentTypes);
-  closeDialog();
-};
-
-const closeDialog = () => {
-  isDialogOpen.value = false;
-  editingPaymentType.value = null;
-};
-
-const availablePaymentTypes = ["cycle", "one-time", "usage-based"];
-
-const getAvailableTypes = computed(() => {
-  const usedTypes = paymentTypes.value.map((pt) => pt.type);
-  return availablePaymentTypes.filter((type) => !usedTypes.includes(type));
-});
 </script>
 
 <template>
-  <div>
+  <div v-if="!priceTable">Loading...</div>
+  <div v-else class="space-y-4">
     <div>
-      <label for="name">Name</label>
-      <Input v-model="name" id="name" />
+      <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+      <Input id="name" v-model="name" @blur="updateSettings" />
     </div>
     <div>
-      <label for="paddlePublicKey">Paddle Public Key</label>
-      <Input v-model="paddlePublicKey" id="paddlePublicKey" />
+      <label for="paddlePublicKey" class="block text-sm font-medium text-gray-700"
+        >Paddle Public Key</label
+      >
+      <Input id="paddlePublicKey" v-model="paddlePublicKey" @blur="updateSettings" />
     </div>
-
     <div>
-      <label for="stripePublicKey">Stripe Public Key</label>
-      <Input v-model="stripePublicKey" id="stripePublicKey" />
+      <label for="stripePublicKey" class="block text-sm font-medium text-gray-700"
+        >Stripe Public Key</label
+      >
+      <Input id="stripePublicKey" v-model="stripePublicKey" @blur="updateSettings" />
     </div>
-
-    <div class="mb-4">
+    <div>
       <label for="baseCurrency" class="block text-sm font-medium text-gray-700"
         >Base Currency</label
       >
-      <Select v-model="baseCurrency">
-        <SelectTrigger class="w-full">
-          <SelectValue placeholder="Select base currency" />
+      <Select v-model="baseCurrency" @update:modelValue="updateSettings">
+        <SelectTrigger>
+          <SelectValue :placeholder="baseCurrency" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem
@@ -192,118 +162,83 @@ const getAvailableTypes = computed(() => {
             :key="currency.code"
             :value="currency.code"
           >
-            {{ currency.name }} ({{ currency.code }})
+            {{ currency.name }}
           </SelectItem>
         </SelectContent>
       </Select>
     </div>
-
-    <div class="mb-4">
-      <label for="availableCurrencies" class="block text-sm font-medium text-gray-700"
-        >Available Currencies</label
-      >
-      <Multiselect
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Available Currencies</label>
+      <ComboboxRoot
         v-model="selectedCurrencies"
-        :options="filteredAvailableCurrencies"
-        :multiple="true"
-        :close-on-select="false"
-        :clear-on-select="false"
-        :preserve-search="true"
-        placeholder="Select currencies"
-        label="name"
-        track-by="code"
+        v-model:open="openCurrencySelect"
+        v-model:searchTerm="currencySearchTerm"
+        multiple
+        class="relative"
+        @update:modelValue="updateSettings"
       >
-        <template #option="{ option }"> {{ option.name }} ({{ option.code }}) </template>
-      </Multiselect>
-    </div>
-
-    <div class="mb-4">
-      <label for="paymentTypes" class="block text-sm font-medium text-gray-700"
-        >Payment Types</label
-      >
-      <div
-        v-for="(paymentType, index) in paymentTypes"
-        :key="index"
-        class="flex items-center justify-between mt-2 p-2 bg-gray-100 rounded"
-      >
-        <span>{{ paymentType.name }}</span>
-        <div class="flex items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            @click="editPaymentType(index)"
-            class="text-blue-500"
+        <ComboboxAnchor
+          class="w-full inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <TagsInput
+            :model-value="selectedCurrencies"
+            class="flex gap-2 items-center rounded-lg flex-wrap"
           >
-            <Pencil class="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            @click="removePaymentType(paymentType.name)"
-            class="text-red-500"
-          >
-            <Trash class="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-      <Dialog v-model:open="isDialogOpen">
-        <DialogTrigger asChild>
-          <Button class="mt-2 flex items-center text-blue-500">
-            <Plus class="h-5 w-5 mr-1" />
-            Add Payment Type
-          </Button>
-        </DialogTrigger>
-        <DialogContent class="w-full max-w-4xl">
-          <DialogHeader>
-            <DialogTitle
-              >{{ editingPaymentType ? "Edit" : "Add" }} Payment Type</DialogTitle
+            <TagsInputItem
+              v-for="code in selectedCurrencies"
+              :key="code"
+              :value="code"
+              class="flex items-center justify-center gap-2 text-white bg-primary rounded px-2 py-1"
             >
-            <DialogDescription>
-              {{ editingPaymentType ? "Edit the existing" : "Add a new" }} payment type
-              here. Click save when you're done.
-            </DialogDescription>
-          </DialogHeader>
-          <AddPaymentTypeForm
-            :initial-data="editingPaymentType"
-            :available-types="getAvailableTypes"
-            @save="savePaymentType"
-            @cancel="closeDialog"
-          />
-          <DialogFooter>
-            <!-- Add any footer content if needed -->
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <TagsInputItemText class="text-sm">
+                {{ availableCurrencies.find((c) => c.code === code)?.name }} ({{ code }})
+              </TagsInputItemText>
+              <TagsInputItemDelete>
+                <X />
+              </TagsInputItemDelete>
+            </TagsInputItem>
+
+            <ComboboxInput as-child>
+              <TagsInputInput
+                placeholder="Select currencies..."
+                class="focus:outline-none flex-1 rounded !bg-transparent placeholder:text-muted-foreground px-1"
+                @keydown.enter.prevent
+              />
+            </ComboboxInput>
+          </TagsInput>
+
+          <ComboboxTrigger class="ml-2">
+            <ChevronDown class="h-4 w-4 opacity-50Icon" />
+          </ComboboxTrigger>
+        </ComboboxAnchor>
+
+        <ComboboxPortal>
+          <CommandList
+            position="popper"
+            class="w-[--radix-popper-anchor-width] rounded-md mt-2 border bg-popover text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+          >
+            <CommandEmpty>No currencies found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                v-for="currency in filteredAvailableCurrencies"
+                :key="currency.code"
+                :value="currency.code"
+                @select.prevent="
+                  (ev) => {
+                    if (typeof ev.detail.value === 'string') {
+                      currencySearchTerm = '';
+                      selectedCurrencies.push(ev.detail.value);
+                      updateSettings();
+                    }
+                  }
+                "
+              >
+                {{ currency.name }} ({{ currency.code }})
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </ComboboxPortal>
+      </ComboboxRoot>
     </div>
   </div>
-
-  <AlertDialog :open="isAlertDialogOpen" @update:open="isAlertDialogOpen = $event">
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-        <AlertDialogDescription>
-          This action will remove the payment type and all associated prices. This action
-          cannot be undone.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel @click="isAlertDialogOpen = false">Cancel</AlertDialogCancel>
-        <AlertDialogAction @click="confirmRemovePaymentType">Continue</AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>
-
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

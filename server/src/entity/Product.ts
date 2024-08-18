@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, Unique } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm"
 import { PriceTable } from "./PriceTable"
+import { PriceTableDraft } from "./PriceTableDraft"
 import { Price } from "./Price"
 import { Feature } from "./Feature"
 
@@ -24,7 +25,7 @@ export class Product {
   buttonText: string
 
   @Column({ nullable: true })
-  buttonLink: string //Link can be overridden by price
+  buttonLink: string
 
   @Column({ nullable: true })
   stripeProductId: string
@@ -34,6 +35,9 @@ export class Product {
 
   @ManyToOne(() => PriceTable, priceTable => priceTable.products)
   priceTable: PriceTable
+
+  @ManyToOne(() => PriceTableDraft, priceTableDraft => priceTableDraft.products)
+  priceTableDraft: PriceTableDraft
 
   @OneToMany(() => Price, price => price.product)
   prices: Price[]
