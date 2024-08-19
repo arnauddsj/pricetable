@@ -1,9 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, UpdateDateColumn, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, UpdateDateColumn, CreateDateColumn, Unique } from "typeorm"
 import { User } from "./User"
 import { PriceTableDraft } from "./PriceTableDraft"
 import { PriceTableDataType } from "../types/priceTableData"
 
 @Entity()
+@Unique("UQ_DEFAULT_TEMPLATE", ["isDefault", "isDefault"])
 export class PriceTableTemplate {
   @PrimaryGeneratedColumn("uuid")
   id: string
@@ -19,6 +20,9 @@ export class PriceTableTemplate {
 
   @Column({ default: false })
   isPremium: boolean // Paid user only
+
+  @Column({ default: false })
+  isDefault: boolean // If Yes Default template for new PriceTablesDraft
 
   @Column("jsonb")
   PriceTableData: PriceTableDataType[]

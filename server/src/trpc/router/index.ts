@@ -4,12 +4,15 @@ import { AppDataSource } from "../../data-source"
 import { priceTableRouter } from "./priceTable"
 import { productRouter } from "./product"
 import { templateRouter } from "./template"
-import type { PriceTable, Product, Price, Feature, FeatureGroup } from '../../types/entities'
+import { adminRouter } from "./admin"
+import type { PriceTable, Product, Price, Feature, FeatureGroup, PriceTableTemplate, PriceTableDraft } from '../../types/entities'
 
 export const appRouter = router({
   auth: authRouter,
   priceTable: priceTableRouter,
   product: productRouter,
+  template: templateRouter,
+  admin: adminRouter,
   healthCheck: publicProcedure.query(async () => {
     try {
       await AppDataSource.query('SELECT 1')
@@ -19,12 +22,12 @@ export const appRouter = router({
       return { status: 'error', message: 'Server is running but database connection failed' }
     }
   }),
-  template: templateRouter,
+
 })
 
 export type AppRouter = typeof appRouter
 
 // Export entity types
-export type { PriceTable, Product, Price, Feature, FeatureGroup }
+export type { PriceTable, Product, Price, Feature, FeatureGroup, PriceTableTemplate, PriceTableDraft }
 
 export default appRouter

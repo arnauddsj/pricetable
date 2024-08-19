@@ -2,7 +2,6 @@ import { Product } from "./entities"
 import { FeatureGroup } from "./entities"
 
 export interface PriceTableDataType {
-  versionId: string
   publishedAt: Date
   data: PublishedData
 }

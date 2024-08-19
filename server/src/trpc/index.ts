@@ -52,4 +52,11 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, user: ctx.user } })
 })
 
+export const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.user || !ctx.user.isAdmin) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admin access required' })
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } })
+})
+
 export { default as appRouter, AppRouter } from './router'

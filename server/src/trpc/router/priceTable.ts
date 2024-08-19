@@ -6,106 +6,121 @@ import { PriceTableDraft } from '../../entity/PriceTableDraft'
 import { AppDataSource } from '../../data-source'
 import { Product } from '../../entity/Product'
 import { Price } from '../../entity/Price'
-import { FeatureGroup } from '../../entity/FeatureGroup'
+import { User } from '../../entity/User'
 import { PriceTableTemplate } from '../../entity/PriceTableTemplate'
+import { Not, In } from 'typeorm'
 
-const paymentTypeSchema = z.object({
-  name: z.string(),
-  type: z.enum(['cycle', 'one-time', 'usage-based']),
-  unitName: z.string(),
-  usageBasedConfig: z.object({
-    min: z.number().optional(),
-    max: z.number().optional(),
-    step: z.number().optional(),
-  }).optional().nullable(),
+const priceSchema = z.object({
+  id: z.string().uuid().optional(),
+  unitAmount: z.number(),
+  currency: z.string(),
+  paymentTypeName: z.string(),
+  checkoutUrl: z.string().optional().nullable(),
 })
 
-const priceTableSchema = z.object({
+const productSchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string(),
+  description: z.string(),
+  isHighlighted: z.boolean(),
+  highlightText: z.string().optional().nullable(),
+  buttonText: z.string().optional().nullable(),
+  buttonLink: z.string().optional().nullable(),
+  prices: z.array(priceSchema),
+})
+
+const priceTableDraftSchema = z.object({
+  name: z.string().optional(),
+  stripePublicKey: z.string().optional(),
+  paddlePublicKey: z.string().optional(),
+  htmlTemplate: z.string().optional(),
+  customCSS: z.record(z.any()).optional(),
   currencySettings: z.object({
     baseCurrency: z.string(),
     availableCurrencies: z.array(z.string()),
-  }).partial(),
-  stripePublicKey: z.string(),
-  paddlePublicKey: z.string(),
-  paymentTypes: z.array(paymentTypeSchema),
-}).partial()
+  }).optional(),
+  paymentTypes: z.array(z.object({
+    name: z.string(),
+    type: z.enum(['cycle', 'one-time', 'usage-based']),
+    unitName: z.string(),
+    usageBasedConfig: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      step: z.number().optional(),
+    }).optional().nullable(),
+  })).optional(),
+  products: z.array(productSchema).optional(),
+})
+
+const PriceTableSchema = z.object({
+  name: z.string(),
+  stripePublicKey: z.string().optional(),
+  paddlePublicKey: z.string().optional(),
+  currencySettings: z.object({
+    baseCurrency: z.string(),
+    availableCurrencies: z.array(z.string()),
+  }).optional(),
+  paymentTypes: z.array(z.object({
+    name: z.string(),
+    type: z.enum(['cycle', 'one-time', 'usage-based']),
+    unitName: z.string(),
+    usageBasedConfig: z.object({
+      min: z.number().optional(),
+      max: z.number().optional(),
+      step: z.number().optional(),
+    }).optional().nullable(),
+  })).optional(),
+})
 
 export const priceTableRouter = router({
   create: protectedProcedure
-    .input(priceTableSchema)
+    .input(PriceTableSchema)
     .mutation(async ({ input, ctx }) => {
       const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
       const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
+      const userRepo = AppDataSource.getRepository(User)
 
       return await AppDataSource.transaction(async (transactionalEntityManager) => {
-        // Get the latest default template
-        const latestTemplate = await templateRepo.findOne({
-          where: { isPublic: true, user: null },
-          order: { version: 'DESC' }
+        // Get the default template
+        const defaultTemplate = await templateRepo.findOne({
+          where: { isDefault: true, isPublic: true }
         })
 
-        if (!latestTemplate) {
-          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No default template found' })
+        if (!defaultTemplate || defaultTemplate.PriceTableData.length === 0) {
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No default template found or template has no data' })
         }
 
-        // Create a copy of the latest template for the draft
-        const draftTemplate = templateRepo.create({
-          ...latestTemplate,
-          id: undefined,
-          isPublic: false,
-          user: { id: ctx.user.id }
-        })
-        await transactionalEntityManager.save(draftTemplate)
+        const latestTemplateData = defaultTemplate.PriceTableData[defaultTemplate.PriceTableData.length - 1]
+
+        const user = await userRepo.findOne({ where: { id: ctx.user.id } })
+
+        if (!user) {
+          throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found' })
+        }
 
         // Create the draft PriceTable
         const draftPriceTable = priceTableDraftRepo.create({
           name: input.name,
           stripePublicKey: input.stripePublicKey,
           paddlePublicKey: input.paddlePublicKey,
-          currencySettings: input.currencySettings,
-          paymentTypes: input.paymentTypes,
-          template: draftTemplate
+          htmlTemplate: latestTemplateData.data.htmlTemplate,
+          customCSS: latestTemplateData.data.customCSS,
+          currencySettings: input.currencySettings || latestTemplateData.data.currencySettings,
+          paymentTypes: input.paymentTypes || latestTemplateData.data.paymentTypes,
+          PriceTableTemplate: defaultTemplate,
+          user: user,
+          products: [],
+          featureGroups: []
         })
+
         await transactionalEntityManager.save(draftPriceTable)
 
         return { id: draftPriceTable.id }
       })
     }),
 
-  publish: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ input, ctx }) => {
-      const priceTableRepo = AppDataSource.getRepository(PriceTable)
-      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
 
-      const draft = await priceTableDraftRepo.findOne({
-        where: { priceTable: { id: input.id, user: { id: ctx.user.id } } },
-        relations: ['priceTable'],
-      })
-
-      if (!draft) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Draft price table not found',
-        })
-      }
-
-      // Start a transaction
-      await AppDataSource.transaction(async (transactionalEntityManager) => {
-        // Update the live version with the draft data
-        Object.assign(draft.priceTable, draft)
-        draft.priceTable.isPublished = true
-        draft.priceTable.publishedAt = new Date()
-        await transactionalEntityManager.save(draft.priceTable)
-
-        // Optionally, you can clear some draft-specific data here if needed
-        // draft.someFieldThatShouldBeClearedAfterPublishing = null;
-        await transactionalEntityManager.save(draft)
-      })
-
-      return draft.priceTable
-    }),
+  // TO DO publish: 
 
   getAll: protectedProcedure
     .query(async ({ ctx }) => {
@@ -146,7 +161,7 @@ export const priceTableRouter = router({
       const priceTableDraftRepository = AppDataSource.getRepository(PriceTableDraft)
       const priceTableDraft = await priceTableDraftRepository.findOne({
         where: { id: input.id },
-        relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'template', 'priceTable'],
+        relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'priceTable', 'priceTable.PriceTableTemplate'],
       })
       if (!priceTableDraft) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table draft not found' })
@@ -157,95 +172,80 @@ export const priceTableRouter = router({
   update: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
-      data: priceTableSchema.extend({
-        products: z.array(z.object({
-          id: z.string().uuid().optional(),
-          name: z.string(),
-          description: z.string(),
-          isHighlighted: z.boolean(),
-          highlightText: z.string().optional().nullable(),
-          buttonText: z.string().optional().nullable(),
-          buttonLink: z.string().optional().nullable(),
-          prices: z.array(z.object({
-            id: z.string().uuid().optional(),
-            unitAmount: z.number(),
-            currency: z.string(),
-            paymentTypeName: z.string(),
-            checkoutUrl: z.string().optional().nullable(),
-          })),
-        })).optional(),
-      }),
+      data: priceTableDraftSchema,
     }))
     .mutation(async ({ input, ctx }) => {
-      const priceTableRepository = AppDataSource.getRepository(PriceTable)
-      const productRepository = AppDataSource.getRepository(Product)
-      const priceRepository = AppDataSource.getRepository(Price)
+      const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
+      const productRepo = AppDataSource.getRepository(Product)
+      const priceRepo = AppDataSource.getRepository(Price)
 
-      const priceTable = await priceTableRepository.findOne({
+      const priceTableDraft = await priceTableDraftRepo.findOne({
         where: { id: input.id, user: { id: ctx.user.id } },
-        relations: ['products', 'products.prices'],
+        relations: ['products', 'products.prices', 'featureGroups'],
       })
 
-      if (!priceTable) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
+      if (!priceTableDraft) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table draft not found' })
       }
 
-      // Update price table properties
-      priceTableRepository.merge(priceTable, input.data)
-      if (input.data.currencySettings) {
-        priceTable.currencySettings = {
-          ...priceTable.currencySettings,
-          ...input.data.currencySettings,
-        }
-      }
+      // Update price table draft properties
+      priceTableDraftRepo.merge(priceTableDraft, input.data)
 
       // Update products and prices
       if (input.data.products) {
-        priceTable.products = await Promise.all(input.data.products.map(async (productData) => {
+        priceTableDraft.products = await Promise.all(input.data.products.map(async (productData) => {
           let product: Product
           if (productData.id) {
-            product = await productRepository.findOne({ where: { id: productData.id } })
+            product = await productRepo.findOne({ where: { id: productData.id } })
             if (!product) {
               throw new TRPCError({ code: 'NOT_FOUND', message: `Product with id ${productData.id} not found` })
             }
-            productRepository.merge(product, productData)
+            productRepo.merge(product, productData)
           } else {
-            product = productRepository.create(productData)
-            product.priceTable = priceTable
+            product = productRepo.create(productData)
+            product.priceTableDraft = priceTableDraft
           }
 
           product.prices = await Promise.all(productData.prices.map(async (priceData) => {
             let price: Price
             if (priceData.id) {
-              price = await priceRepository.findOne({ where: { id: priceData.id } })
+              price = await priceRepo.findOne({ where: { id: priceData.id } })
               if (!price) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: `Price with id ${priceData.id} not found` })
               }
-              priceRepository.merge(price, priceData)
+              priceRepo.merge(price, priceData)
             } else {
-              price = priceRepository.create(priceData)
+              price = priceRepo.create(priceData)
             }
             price.product = product
             return price
           }))
 
-          await productRepository.save(product)
+          await productRepo.save(product)
           return product
         }))
       }
 
-      await priceTableRepository.save(priceTable)
-      return priceTable
+      // Remove products that are no longer present
+      if (input.data.products) {
+        const updatedProductIds = input.data.products.map(p => p.id).filter(id => id !== undefined)
+        await productRepo.delete({
+          priceTableDraft: { id: priceTableDraft.id },
+          id: Not(In(updatedProductIds))
+        })
+      }
+
+      // Here you would handle updating featureGroups if needed
+
+      await priceTableDraftRepo.save(priceTableDraft)
+      return priceTableDraft
     }),
 
+  // TODO UDPATE DELETE
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const priceTableRepository = AppDataSource.getRepository(PriceTable)
-      const productRepository = AppDataSource.getRepository(Product)
-      const priceRepository = AppDataSource.getRepository(Price)
-      const featureGroupRepository = AppDataSource.getRepository(FeatureGroup)
-      const priceTableDraftRepository = AppDataSource.getRepository(PriceTableDraft)
 
       const priceTable = await priceTableRepository.findOne({
         where: { id: input.id, user: { id: ctx.user.id } },

@@ -27,6 +27,9 @@ export class User {
   @OneToMany(() => PriceTableTemplate, template => template.user, { nullable: true, cascade: true })
   PriceTableTemplates: PriceTableTemplate[]
 
+  @Column({ default: false })
+  isAdmin: boolean
+
   @CreateDateColumn()
   createdAt: Date
 

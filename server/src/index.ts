@@ -6,8 +6,9 @@ import type { AppRouter } from './trpc/router'
 import fastifyCookie from '@fastify/cookie'
 import { AppDataSource } from './data-source'
 import dotenv from 'dotenv'
-import { loadTemplate } from './services/template'
-import { PriceTableTemplate } from './entity/PriceTableTemplate'
+import { updateDefaultTemplate } from './services/template'
+import { DEFAULT_HTML_TEMPLATE, DEFAULT_CUSTOM_CSS } from './templates/0.1'
+
 // Load environment variables
 dotenv.config()
 
@@ -72,18 +73,17 @@ server.register(fastifyTRPCPlugin, {
 })
 
 // Create the default template on load, make sure to point to the right version
-async function createDefaultTemplate() {
-  const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
-  const defaultTemplate = loadTemplate('0.2')
-  const existingTemplate = await templateRepo.findOne({ where: { version: defaultTemplate.databaseFields.version } })
-  if (!existingTemplate) {
-    const newTemplate = templateRepo.create({
-      ...defaultTemplate.databaseFields,
-      user: null,  // Explicitly set user to null
-      isPublic: true  // Ensure it's marked as public
+export async function createDefaultTemplate() {
+  try {
+    await updateDefaultTemplate({
+      name: "Default Template",
+      htmlTemplate: DEFAULT_HTML_TEMPLATE,
+      customCSS: DEFAULT_CUSTOM_CSS
     })
-    await templateRepo.save(newTemplate)
-    console.log('Default template created')
+    console.log('Default template created or updated successfully')
+  } catch (error) {
+    console.error('Error creating/updating default template:', error)
+    // Handle the error appropriately
   }
 }
 
