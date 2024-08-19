@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm"
-import { PriceTable } from "./PriceTable"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, UpdateDateColumn, CreateDateColumn } from "typeorm"
 import { PriceTableDraft } from "./PriceTableDraft"
 import { Price } from "./Price"
 import { Feature } from "./Feature"
@@ -33,9 +32,6 @@ export class Product {
   @Column({ nullable: true })
   paddleProductId: string
 
-  @ManyToOne(() => PriceTable, priceTable => priceTable.products)
-  priceTable: PriceTable
-
   @ManyToOne(() => PriceTableDraft, priceTableDraft => priceTableDraft.products)
   priceTableDraft: PriceTableDraft
 
@@ -45,4 +41,10 @@ export class Product {
   @ManyToMany(() => Feature)
   @JoinTable()
   features: Feature[]
+
+  @CreateDateColumn()
+  createdAt: Date
+
+  @UpdateDateColumn()
+  updatedAt: Date
 }

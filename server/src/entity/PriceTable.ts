@@ -1,9 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, OneToOne, UpdateDateColumn, CreateDateColumn, JoinColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToOne, UpdateDateColumn, CreateDateColumn, JoinColumn } from "typeorm"
 import { User } from "./User"
-import { PriceTableTemplate } from "./PriceTableTemplate"
-import { Product } from "./Product"
-import { FeatureGroup } from "./FeatureGroup"
 import { PriceTableDraft } from "./PriceTableDraft"
+import { PriceTableData } from "../types/priceTableData"
 
 @Entity()
 export class PriceTable {
@@ -16,61 +14,8 @@ export class PriceTable {
   @ManyToOne(() => User, user => user.priceTables)
   user: User
 
-  @Column({ nullable: true })
-  templateId: string
-
-  @Column({ nullable: true })
-  stripePublicKey: string
-
-  @Column({ nullable: true })
-  paddlePublicKey: string
-
-  @Column("jsonb", {
-    default: {
-      baseCurrency: "USD",
-      availableCurrencies: ["USD"]
-    }
-  })
-  currencySettings: {
-    baseCurrency: string
-    availableCurrencies: string[]
-  }
-
-  @OneToOne(() => PriceTableTemplate)
-  @JoinColumn()
-  template: PriceTableTemplate
-
-  @OneToMany(() => Product, product => product.priceTable, { cascade: true })
-  products: Product[]
-
-  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTable, { cascade: true })
-  featureGroups: FeatureGroup[]
-
-  @Column("jsonb", {
-    default: [
-      {
-        name: "Month",
-        type: "cycle",
-        unitName: "/month"
-      }
-    ]
-  })
-  paymentTypes: {
-    name: string
-    type: 'cycle' | 'one-time' | 'usage-based'
-    unitName: string
-    usageBasedConfig?: {
-      min?: number
-      max?: number
-      step?: number
-    } | null
-  }[]
-
-  @Column({ default: false })
-  isPublished: boolean
-
-  @Column({ type: 'timestamp', nullable: true })
-  publishedAt: Date | null
+  @Column("jsonb")
+  versions: PriceTableData[]
 
   @OneToOne(() => PriceTableDraft, draft => draft.priceTable, { cascade: true })
   draft: PriceTableDraft

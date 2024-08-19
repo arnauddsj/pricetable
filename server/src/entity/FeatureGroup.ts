@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from "typeorm"
-import { PriceTable } from "./PriceTable"
+import { PriceTableDraft } from "./PriceTableDraft"
 import { Feature } from "./Feature"
 
 @Entity()
@@ -16,8 +16,8 @@ export class FeatureGroup {
   @Column({ nullable: true })
   imageUrl: string
 
-  @ManyToOne(() => PriceTable, priceTable => priceTable.featureGroups)
-  priceTable: PriceTable
+  @ManyToOne(() => PriceTableDraft, priceTableDraft => priceTableDraft.featureGroups)
+  priceTableDraft: PriceTableDraft
 
   @OneToMany(() => Feature, feature => feature.group)
   features: Feature[]

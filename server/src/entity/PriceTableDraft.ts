@@ -1,20 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany, UpdateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, ManyToOne, JoinColumn, OneToMany, UpdateDateColumn, CreateDateColumn } from "typeorm"
 import { PriceTable } from "./PriceTable"
 import { Product } from "./Product"
 import { PriceTableTemplate } from "./PriceTableTemplate"
+import { FeatureGroup } from "./FeatureGroup"
+import { User } from "./User"
 
 @Entity()
 export class PriceTableDraft {
   @PrimaryGeneratedColumn("uuid")
   id: string
-
-  @OneToOne(() => PriceTable, priceTable => priceTable.draft)
-  @JoinColumn()
-  priceTable: PriceTable
-
-  @OneToOne(() => PriceTableTemplate)
-  @JoinColumn()
-  template: PriceTableTemplate
 
   @Column()
   name: string
@@ -56,9 +50,27 @@ export class PriceTableDraft {
     } | null
   }[]
 
+
+  @OneToOne(() => PriceTable, priceTable => priceTable.draft)
+  @JoinColumn()
+  priceTable: PriceTable
+
+  @OneToOne(() => PriceTableTemplate)
+  @JoinColumn()
+  PriceTableTemplate: PriceTableTemplate
+
+  @ManyToOne(() => User, user => user.priceTablesDraft)
+  user: User
+
   @OneToMany(() => Product, product => product.priceTableDraft)
   products: Product[]
 
+  @OneToMany(() => FeatureGroup, featureGroup => featureGroup.priceTableDraft)
+  featureGroups: FeatureGroup[]
+
   @UpdateDateColumn()
   updatedAt: Date
-}
+
+  @CreateDateColumn()
+  createdAt: Date
+} 

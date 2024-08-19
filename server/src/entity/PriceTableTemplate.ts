@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, UpdateDateColumn, CreateDateColumn } from "typeorm"
 import { User } from "./User"
-import { PriceTable } from "./PriceTable"
+import { PriceTableDraft } from "./PriceTableDraft"
+import { PriceTableData } from "../types/priceTableData"
 
 @Entity()
 export class PriceTableTemplate {
@@ -9,6 +10,9 @@ export class PriceTableTemplate {
 
   @Column({ nullable: true })
   name: string
+
+  @Column("jsonb")
+  versions: PriceTableData[]
 
   @Column({ default: false })
   isPublic: boolean // If true, the template is available to all users, it's like isPublished
@@ -22,61 +26,18 @@ export class PriceTableTemplate {
   @Column()
   version: string
 
-  @Column({ nullable: true })
-  availableFeatureIconUrl: string
-
-  @Column({ nullable: true })
-  unavailableFeatureIconUrl: string
-
   @Column("jsonb")
   customCSS: Record<string, any>
 
-  @Column({ nullable: true })
-  originalTemplateId: string | null
+  @OneToMany(() => PriceTableDraft, draft => draft.PriceTableTemplate)
+  priceTableDrafts: PriceTableDraft[]
 
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => User, user => user.PriceTableTemplates, { nullable: true })
   user: User | null
 
-  @ManyToOne(() => PriceTableTemplate, { nullable: true })
-  originalTemplate: PriceTableTemplate | null
-
-  @OneToMany(() => PriceTable, priceTable => priceTable.template)
-  priceTables: PriceTable[]
-
-  @Column("jsonb", {
-    default: [
-      {
-        name: "Month",
-        type: "cycle",
-        unitName: "/month"
-      }
-    ]
-  })
-  paymentTypes: {
-    name: string
-    type: 'cycle' | 'one-time' | 'usage-based'
-    unitName: string
-    usageBasedConfig?: {
-      min?: number
-      max?: number
-      step?: number
-    } | null
-  }[]
-
-  @Column("jsonb", {
-    default: {
-      baseCurrency: "USD",
-      availableCurrencies: ["USD"]
-    }
-  })
-  currencySettings: {
-    baseCurrency: string
-    availableCurrencies: string[]
-  }
-
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  updatedAt: Date
-
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date
+
+  @UpdateDateColumn()
+  updatedAt: Date
 }

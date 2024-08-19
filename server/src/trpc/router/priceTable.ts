@@ -35,7 +35,6 @@ export const priceTableRouter = router({
   create: protectedProcedure
     .input(priceTableSchema)
     .mutation(async ({ input, ctx }) => {
-      const priceTableRepo = AppDataSource.getRepository(PriceTable)
       const priceTableDraftRepo = AppDataSource.getRepository(PriceTableDraft)
       const templateRepo = AppDataSource.getRepository(PriceTableTemplate)
 
@@ -50,16 +49,7 @@ export const priceTableRouter = router({
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No default template found' })
         }
 
-        // Create a copy of the latest template for live version
-        const liveTemplate = templateRepo.create({
-          ...latestTemplate,
-          id: undefined,
-          isPublic: false,
-          user: { id: ctx.user.id }
-        })
-        await transactionalEntityManager.save(liveTemplate)
-
-        // Create another copy for draft version
+        // Create a copy of the latest template for the draft
         const draftTemplate = templateRepo.create({
           ...latestTemplate,
           id: undefined,
@@ -68,15 +58,6 @@ export const priceTableRouter = router({
         })
         await transactionalEntityManager.save(draftTemplate)
 
-        // Create the live PriceTable
-        const livePriceTable = priceTableRepo.create({
-          ...input,
-          user: { id: ctx.user.id },
-          isPublished: false,
-          template: liveTemplate
-        })
-        await transactionalEntityManager.save(livePriceTable)
-
         // Create the draft PriceTable
         const draftPriceTable = priceTableDraftRepo.create({
           name: input.name,
@@ -84,16 +65,11 @@ export const priceTableRouter = router({
           paddlePublicKey: input.paddlePublicKey,
           currencySettings: input.currencySettings,
           paymentTypes: input.paymentTypes,
-          priceTable: livePriceTable,
           template: draftTemplate
         })
         await transactionalEntityManager.save(draftPriceTable)
 
-        // Update the live PriceTable with the draft reference
-        livePriceTable.draft = draftPriceTable
-        await transactionalEntityManager.save(livePriceTable)
-
-        return { id: livePriceTable.id }
+        return { id: draftPriceTable.id }
       })
     }),
 
@@ -163,6 +139,7 @@ export const priceTableRouter = router({
       }
       return priceTable
     }),
+
   getDraftById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
