@@ -4,6 +4,7 @@ import { Product } from "./Product"
 import { PriceTableTemplate } from "./PriceTableTemplate"
 import { FeatureGroup } from "./FeatureGroup"
 import { User } from "./User"
+import { PaymentType } from "../types/priceTableData"
 
 @Entity()
 export class PriceTableDraft {
@@ -39,17 +40,13 @@ export class PriceTableDraft {
       }
     ]
   })
-  paymentTypes: {
-    name: string
-    type: 'cycle' | 'one-time' | 'usage-based'
-    unitName: string
-    usageBasedConfig?: {
-      min?: number
-      max?: number
-      step?: number
-    } | null
-  }[]
+  paymentTypes: PaymentType[]
 
+  @Column("text")
+  htmlTemplate: string
+
+  @Column("jsonb")
+  customCSS: Record<string, any>
 
   @OneToOne(() => PriceTable, priceTable => priceTable.draft)
   @JoinColumn()

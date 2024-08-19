@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, UpdateDateColumn, CreateDateColumn } from "typeorm"
 import { User } from "./User"
 import { PriceTableDraft } from "./PriceTableDraft"
-import { PriceTableData } from "../types/priceTableData"
+import { PriceTableDataType } from "../types/priceTableData"
 
 @Entity()
 export class PriceTableTemplate {
@@ -11,9 +11,6 @@ export class PriceTableTemplate {
   @Column({ nullable: true })
   name: string
 
-  @Column("jsonb")
-  versions: PriceTableData[]
-
   @Column({ default: false })
   isPublic: boolean // If true, the template is available to all users, it's like isPublished
 
@@ -21,16 +18,13 @@ export class PriceTableTemplate {
   isFeatured: boolean
 
   @Column({ default: false })
-  isPremium: boolean
-
-  @Column()
-  version: string
+  isPremium: boolean // Paid user only
 
   @Column("jsonb")
-  customCSS: Record<string, any>
+  PriceTableData: PriceTableDataType[]
 
   @OneToMany(() => PriceTableDraft, draft => draft.PriceTableTemplate)
-  priceTableDrafts: PriceTableDraft[]
+  priceTableDrafts: PriceTableDraft[] // The origin of this template 
 
   @ManyToOne(() => User, user => user.PriceTableTemplates, { nullable: true })
   user: User | null

@@ -1,55 +1,32 @@
-export interface PriceTableData {
+import { Product } from "./entities"
+import { FeatureGroup } from "./entities"
+
+export interface PriceTableDataType {
   versionId: string
   publishedAt: Date
   data: PublishedData
 }
 
-export interface PublishedData {
+export interface PaymentType {
   name: string
+  type: 'cycle' | 'one-time' | 'usage-based'
+  unitName: string
+  usageBasedConfig?: {
+    min?: number
+    max?: number
+    step?: number
+  } | null
+}
+
+
+export interface PublishedData {
+  htmlTemplate: string
+  customCSS: Record<string, any>
   currencySettings: {
     baseCurrency: string
     availableCurrencies: string[]
   }
-  paymentTypes: {
-    name: string
-    type: 'cycle' | 'one-time' | 'usage-based'
-    unitName: string
-    usageBasedConfig?: {
-      min?: number
-      max?: number
-      step?: number
-    } | null
-  }[]
-  products: {
-    id: string
-    name: string
-    description: string
-    isHighlighted: boolean
-    highlightText?: string
-    buttonText?: string
-    buttonLink?: string
-    stripeProductId?: string
-    paddleProductId?: string
-    prices: {
-      id: string
-      paymentTypeName: string
-      unitAmount: number
-      currency: string
-      checkoutUrl?: string
-    }[]
-  }[]
-  featureGroups: {
-    id: string
-    name: string
-    description: string
-    imageUrl?: string
-    features: {
-      id: string
-      name: string
-      description: string
-      imageUrl?: string
-      availableFeatureIconUrl?: string
-      unavailableFeatureIconUrl?: string
-    }[]
-  }[]
+  paymentTypes: PaymentType[]
+  products: Product[]
+  featureGroups: FeatureGroup[]
 }

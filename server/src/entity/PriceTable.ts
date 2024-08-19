@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToOne, UpdateDateColumn, CreateDateColumn, JoinColumn } from "typeorm"
 import { User } from "./User"
 import { PriceTableDraft } from "./PriceTableDraft"
-import { PriceTableData } from "../types/priceTableData"
+import { PriceTableDataType } from "../types/priceTableData"
 
 @Entity()
 export class PriceTable {
@@ -15,7 +15,13 @@ export class PriceTable {
   user: User
 
   @Column("jsonb")
-  versions: PriceTableData[]
+  PriceTableData: PriceTableDataType[]
+
+  @Column("text", { nullable: true })
+  htmlTemplate: string
+
+  @Column("jsonb", { nullable: true })
+  customCSS: Record<string, any>
 
   @OneToOne(() => PriceTableDraft, draft => draft.priceTable, { cascade: true })
   draft: PriceTableDraft
