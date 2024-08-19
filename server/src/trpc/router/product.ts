@@ -3,7 +3,7 @@ import { z } from "zod"
 import { AppDataSource } from "../../data-source"
 import { Product } from "../../entity/Product"
 import { Price } from "../../entity/Price"
-import { PriceTable } from "../../entity/PriceTable"
+import { PriceTableDraft } from "../../entity/PriceTableDraft"
 import { TRPCError } from "@trpc/server"
 import { Not, In } from 'typeorm'
 
@@ -45,7 +45,7 @@ export const productRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { priceTableId, prices, ...productData } = input
 
-      const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const priceTableRepository = AppDataSource.getRepository(PriceTableDraft)
       const priceTable = await priceTableRepository.findOne({
         where: { id: priceTableId, user: { id: ctx.user.id } },
       })
@@ -59,7 +59,7 @@ export const productRouter = router({
 
       const product = productRepository.create({
         ...productData,
-        priceTable,
+        priceTableDraft: priceTable,
       })
 
       try {
@@ -100,7 +100,7 @@ export const productRouter = router({
 
       console.log("Received product update:", JSON.stringify(product, null, 2))
 
-      const priceTableRepository = AppDataSource.getRepository(PriceTable)
+      const priceTableRepository = AppDataSource.getRepository(PriceTableDraft)
       const priceTable = await priceTableRepository.findOne({
         where: { id: priceTableId, user: { id: ctx.user.id } },
         relations: ['products', 'products.prices'],
@@ -116,7 +116,7 @@ export const productRouter = router({
       let existingProduct: Product | null = null
       if (product.id) {
         existingProduct = await productRepository.findOne({
-          where: { id: product.id, priceTable: { id: priceTableId } },
+          where: { id: product.id, priceTableDraft: { id: priceTableId } },
           relations: ['prices'],
         })
         if (!existingProduct) {
@@ -166,7 +166,7 @@ export const productRouter = router({
           // Create new product
           const newProduct = productRepository.create({
             ...product,
-            priceTable,
+            priceTableDraft: priceTable,
           })
           await transactionalEntityManager.save(newProduct)
 
@@ -265,7 +265,7 @@ export const productRouter = router({
     .query(async ({ input }) => {
       const productRepository = AppDataSource.getRepository(Product)
       const products = await productRepository.find({
-        where: { priceTable: { id: input.priceTableId } },
+        where: { priceTableDraft: { id: input.priceTableId } },
       })
       return products
     }),

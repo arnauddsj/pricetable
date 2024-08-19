@@ -3,6 +3,7 @@ import path from 'path'
 import { EntityManager } from 'typeorm'
 import { AppDataSource } from '../data-source'
 import { PriceTableTemplate } from '../entity/PriceTableTemplate'
+import { PriceTableDataType } from '../types/priceTableData'
 
 export async function updateDefaultTemplate(
   input: {
@@ -21,18 +22,37 @@ export async function updateDefaultTemplate(
       where: { isDefault: true }
     })
 
+    const priceTableData: PriceTableDataType = {
+      publishedAt: new Date(),
+      data: {
+        htmlTemplate: input.htmlTemplate,
+        customCSS: input.customCSS,
+        currencySettings: {
+          baseCurrency: "USD",
+          availableCurrencies: ["USD"]
+        },
+        paymentTypes: [
+          {
+            name: "Month",
+            type: "cycle",
+            unitName: "/month"
+          }
+        ],
+        products: [],
+        featureGroups: []
+      }
+    }
+
     if (currentDefault) {
       // Update the existing default template
       currentDefault.name = input.name || currentDefault.name
-      currentDefault.htmlTemplate = input.htmlTemplate
-      currentDefault.customCSS = input.customCSS
+      currentDefault.PriceTableData = priceTableData
       await manager.save(currentDefault)
     } else {
       // Create a new default template if none exists
       const newDefault = manager.create(PriceTableTemplate, {
         name: input.name || "Default Template",
-        htmlTemplate: input.htmlTemplate,
-        customCSS: input.customCSS,
+        PriceTableData: priceTableData,
         isDefault: true,
         isPublic: true
       })
@@ -83,4 +103,3 @@ export function generateCSS(customCSS: Record<string, any>): string {
 export function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(amount / 100)
 }
-

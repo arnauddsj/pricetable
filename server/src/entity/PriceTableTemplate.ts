@@ -4,7 +4,7 @@ import { PriceTableDraft } from "./PriceTableDraft"
 import { PriceTableDataType } from "../types/priceTableData"
 
 @Entity()
-@Unique("UQ_DEFAULT_TEMPLATE", ["isDefault", "isDefault"])
+@Unique("UQ_DEFAULT_TEMPLATE", ["isDefault"])
 export class PriceTableTemplate {
   @PrimaryGeneratedColumn("uuid")
   id: string
@@ -25,10 +25,10 @@ export class PriceTableTemplate {
   isDefault: boolean // If Yes Default template for new PriceTablesDraft
 
   @Column("jsonb")
-  PriceTableData: PriceTableDataType[]
+  PriceTableData: PriceTableDataType
 
   @OneToMany(() => PriceTableDraft, draft => draft.PriceTableTemplate)
-  priceTableDrafts: PriceTableDraft[] // The origin of this template 
+  priceTableDrafts: PriceTableDraft // The origin of this template 
 
   @ManyToOne(() => User, user => user.PriceTableTemplates, { nullable: true })
   user: User | null

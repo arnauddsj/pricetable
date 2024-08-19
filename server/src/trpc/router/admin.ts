@@ -10,6 +10,10 @@ export const adminRouter = router({
       customCSS: z.record(z.any())
     }))
     .mutation(async ({ input }) => {
-      return await updateDefaultTemplate(input)
+      return await updateDefaultTemplate({
+        name: input.name,
+        htmlTemplate: input.htmlTemplate,
+        customCSS: input.customCSS
+      })
     })
 })

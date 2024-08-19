@@ -86,11 +86,9 @@ export const priceTableRouter = router({
           where: { isDefault: true, isPublic: true }
         })
 
-        if (!defaultTemplate || defaultTemplate.PriceTableData.length === 0) {
+        if (!defaultTemplate || defaultTemplate.PriceTableData) {
           throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No default template found or template has no data' })
         }
-
-        const latestTemplateData = defaultTemplate.PriceTableData[defaultTemplate.PriceTableData.length - 1]
 
         const user = await userRepo.findOne({ where: { id: ctx.user.id } })
 
@@ -103,10 +101,10 @@ export const priceTableRouter = router({
           name: input.name,
           stripePublicKey: input.stripePublicKey,
           paddlePublicKey: input.paddlePublicKey,
-          htmlTemplate: latestTemplateData.data.htmlTemplate,
-          customCSS: latestTemplateData.data.customCSS,
-          currencySettings: input.currencySettings || latestTemplateData.data.currencySettings,
-          paymentTypes: input.paymentTypes || latestTemplateData.data.paymentTypes,
+          htmlTemplate: defaultTemplate.PriceTableData.data.htmlTemplate,
+          customCSS: defaultTemplate.PriceTableData.data.customCSS,
+          currencySettings: input.currencySettings || defaultTemplate.PriceTableData.data.currencySettings,
+          paymentTypes: input.paymentTypes || defaultTemplate.PriceTableData.data.paymentTypes,
           PriceTableTemplate: defaultTemplate,
           user: user,
           products: [],
@@ -242,54 +240,54 @@ export const priceTableRouter = router({
     }),
 
   // TODO UDPATE DELETE
-  delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ input, ctx }) => {
-      const priceTableRepository = AppDataSource.getRepository(PriceTable)
+  // delete: protectedProcedure
+  //   .input(z.object({ id: z.string().uuid() }))
+  //   .mutation(async ({ input, ctx }) => {
+  //     const priceTableRepository = AppDataSource.getRepository(PriceTable)
 
-      const priceTable = await priceTableRepository.findOne({
-        where: { id: input.id, user: { id: ctx.user.id } },
-        relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'draft']
-      })
+  //     const priceTable = await priceTableRepository.findOne({
+  //       where: { id: input.id, user: { id: ctx.user.id } },
+  //       relations: ['products', 'products.prices', 'featureGroups', 'featureGroups.features', 'draft']
+  //     })
 
-      if (!priceTable) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
-      }
+  //     if (!priceTable) {
+  //       throw new TRPCError({ code: 'NOT_FOUND', message: 'Price table not found' })
+  //     }
 
-      await AppDataSource.transaction(async (transactionalEntityManager) => {
-        // Remove prices
-        if (priceTable.products) {
-          for (const product of priceTable.products) {
-            if (product.prices) {
-              await transactionalEntityManager.remove(product.prices)
-            }
-          }
-        }
+  //     await AppDataSource.transaction(async (transactionalEntityManager) => {
+  //       // Remove prices
+  //       if (priceTable.products) {
+  //         for (const product of priceTable.products) {
+  //           if (product.prices) {
+  //             await transactionalEntityManager.remove(product.prices)
+  //           }
+  //         }
+  //       }
 
-        // Remove products
-        if (priceTable.products) {
-          await transactionalEntityManager.remove(priceTable.products)
-        }
+  //       // Remove products
+  //       if (priceTable.products) {
+  //         await transactionalEntityManager.remove(priceTable.products)
+  //       }
 
-        // Remove features and feature groups
-        if (priceTable.featureGroups) {
-          for (const featureGroup of priceTable.featureGroups) {
-            if (featureGroup.features) {
-              await transactionalEntityManager.remove(featureGroup.features)
-            }
-          }
-          await transactionalEntityManager.remove(priceTable.featureGroups)
-        }
+  //       // Remove features and feature groups
+  //       if (priceTable.featureGroups) {
+  //         for (const featureGroup of priceTable.featureGroups) {
+  //           if (featureGroup.features) {
+  //             await transactionalEntityManager.remove(featureGroup.features)
+  //           }
+  //         }
+  //         await transactionalEntityManager.remove(priceTable.featureGroups)
+  //       }
 
-        // Remove draft
-        if (priceTable.draft) {
-          await transactionalEntityManager.remove(priceTable.draft)
-        }
+  //       // Remove draft
+  //       if (priceTable.draft) {
+  //         await transactionalEntityManager.remove(priceTable.draft)
+  //       }
 
-        // Remove the price table itself
-        await transactionalEntityManager.remove(priceTable)
-      })
+  //       // Remove the price table itself
+  //       await transactionalEntityManager.remove(priceTable)
+  //     })
 
-      return { success: true }
-    }),
+  //     return { success: true }
+  //   }),
 })
