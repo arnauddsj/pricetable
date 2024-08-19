@@ -2,6 +2,7 @@ import { Product } from "./entities"
 import { FeatureGroup } from "./entities"
 
 export interface PriceTableDataType {
+  isLive?: boolean // help to know which version of the data is live. There should be only one live version.
   publishedAt: Date
   data: PublishedData
 }

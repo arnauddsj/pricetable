@@ -15,7 +15,7 @@ export class PriceTable {
   user: User
 
   @Column("jsonb")
-  PriceTableData: PriceTableDataType
+  PriceTableData: PriceTableDataType[]
 
   @Column("text", { nullable: true })
   htmlTemplate: string
